@@ -102,9 +102,13 @@ func parseFlags() *Config {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nSupported PCAP formats:\n")
+		fmt.Fprintf(os.Stderr, "  - Standard Ethernet (DLT_EN10MB)\n")
+		fmt.Fprintf(os.Stderr, "  - Linux cooked capture (DLT_LINUX_SLL)\n")
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  %s -interface eth0\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -pcap-file capture.pcap -enterprise\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -pcap-file cooked.pcap -verbose\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -i eth0 -filter \"port 6081\" -count 100\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -r network.pcap -output json\n", os.Args[0])
 	}
@@ -173,6 +177,24 @@ func processPcapFile(config *Config, parser *geneve.Parser, stats *PacketStats) 
 		log.Fatalf("Error creating pcap reader: %v", err)
 	}
 
+	// Determine link type from the pcap file
+	linkType := pcapReader.LinkType()
+	var layerType gopacket.LayerType
+	
+	switch linkType {
+	case layers.LinkTypeEthernet:
+		layerType = layers.LayerTypeEthernet
+		fmt.Printf("Link type: Ethernet\n")
+	case layers.LinkTypeLinuxSLL:
+		layerType = layers.LayerTypeLinuxSLL
+		fmt.Printf("Link type: Linux cooked capture (SLL)\n")
+	default:
+		// Try to auto-detect or default to Ethernet
+		layerType = layers.LayerTypeEthernet
+		fmt.Printf("Link type: %v (defaulting to Ethernet - may not work correctly)\n", linkType)
+		fmt.Printf("Warning: Unsupported link type. Supported types are Ethernet and Linux SLL\n")
+	}
+
 	// Read packets
 	for {
 		data, ci, err := pcapReader.ReadPacketData()
@@ -184,8 +206,8 @@ func processPcapFile(config *Config, parser *geneve.Parser, stats *PacketStats) 
 			continue
 		}
 
-		// Create packet from data
-		packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
+		// Create packet from data with appropriate link layer type
+		packet := gopacket.NewPacket(data, layerType, gopacket.Default)
 		packet.Metadata().Timestamp = ci.Timestamp
 		packet.Metadata().CaptureLength = ci.CaptureLength
 		packet.Metadata().Length = ci.Length
@@ -201,7 +223,16 @@ func processPcapFile(config *Config, parser *geneve.Parser, stats *PacketStats) 
 func processPacket(packet gopacket.Packet, parser *geneve.Parser, config *Config, stats *PacketStats) {
 	stats.TotalPackets++
 
-	// Look for UDP layer
+	if config.Verbose && stats.TotalPackets <= 5 {
+		// Debug first few packets to show layer structure
+		fmt.Printf("DEBUG: Packet %d layers: ", stats.TotalPackets)
+		for _, layer := range packet.Layers() {
+			fmt.Printf("%v ", layer.LayerType())
+		}
+		fmt.Printf("\n")
+	}
+
+	// Look for UDP layer - works for both Ethernet and Linux SLL formats
 	udpLayer := packet.Layer(layers.LayerTypeUDP)
 	if udpLayer == nil {
 		return
@@ -212,6 +243,10 @@ func processPacket(packet gopacket.Packet, parser *geneve.Parser, config *Config
 	// Check if it's GENEVE traffic (typically port 6081)
 	if uint16(udp.DstPort) != genevePort && uint16(udp.SrcPort) != genevePort {
 		return
+	}
+
+	if config.Verbose {
+		fmt.Printf("DEBUG: Found GENEVE packet - UDP payload size: %d bytes\n", len(udp.Payload))
 	}
 
 	stats.GenevePackets++
@@ -367,7 +402,7 @@ func outputDetailed(timestamp string, result *geneve.ParseResult, config *Config
 		}
 	}
 
-	// Enterprise options (cloud vendors)
+	// Enterprise options (cloud vendors and new hardware vendors)
 	if len(result.EnterpriseOptions) > 0 {
 		fmt.Printf("\nEnterprise Options (%d decoded):\n", len(result.EnterpriseOptions))
 		for i, enterprise := range result.EnterpriseOptions {

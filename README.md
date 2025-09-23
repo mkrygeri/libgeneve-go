@@ -50,6 +50,9 @@ make analyzer
 # Analyze a PCAP file with detailed telemetry output
 ./build/geneve-analyzer -pcap-file capture.pcap -enterprise
 
+# Analyze Linux cooked capture PCAP files (from tcpdump -i any)
+./build/geneve-analyzer -pcap-file cooked-capture.pcap -verbose
+
 # Filter specific traffic and output as JSON
 ./build/geneve-analyzer -i eth0 -filter "port 6081" -output json -count 100
 
@@ -62,11 +65,17 @@ geneve-analyzer -help
 
 - **Live Capture**: Monitor GENEVE traffic on any network interface
 - **PCAP Analysis**: Process existing packet capture files
+- **Linux Cooked Capture**: Full support for SLL format from `tcpdump -i any`
 - **Multiple Output Formats**: Detailed, summary, or JSON output
 - **Enterprise Telemetry**: Full support for all vendor-specific telemetry
 - **BPF Filtering**: Apply Berkeley Packet Filters for targeted analysis
 - **Statistics**: Real-time packet processing statistics
 - **Signal Handling**: Graceful shutdown with Ctrl+C
+
+### Supported PCAP Formats
+
+- **Ethernet (DLT_EN10MB)**: Standard Ethernet frames
+- **Linux Cooked Capture (DLT_LINUX_SLL)**: From `tcpdump -i any` or similar captures
 
 ### Output Examples
 
