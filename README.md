@@ -173,8 +173,10 @@ for _, broadcom := range result.BroadcomOptions {
 | **Microsoft Azure** | Virtual networks, security groups, load balancers | [Microsoft Azure Telemetry](docs/microsoft-azure-telemetry.md) |
 | **Google Cloud** | VPC networks, GKE clusters, Cloud CDN | [Google Cloud Telemetry](docs/google-cloud-telemetry.md) |
 | **Amazon AWS** | VPC flow logs, EKS clusters, load balancers | [Amazon AWS Telemetry](docs/amazon-aws-telemetry.md) |
-| **Arista Networks** | Traffic analysis platform, latency measurement | [Arista & Broadcom Telemetry](docs/ARISTA-BROADCOM-TELEMETRY.md) |
-| **Broadcom** | Switch telemetry, latency histograms | [Arista & Broadcom Telemetry](docs/ARISTA-BROADCOM-TELEMETRY.md) |
+| **Arista Networks** | Traffic analysis platform, latency measurement | [Arista EOS Telemetry](docs/arista-eos-telemetry.md) |
+| **Broadcom** | ASIC telemetry, fabric health, power efficiency | [Broadcom Telemetry](docs/broadcom-telemetry.md) |
+| **NVIDIA/Mellanox** | Spectrum ASIC, ConnectX NIC, RDMA, NVLink, GPUDirect | [NVIDIA/Mellanox Telemetry](docs/nvidia-mellanox-telemetry.md) |
+| **Cumulus Networks** | EVPN, VXLAN, MLAG, BGP, fabric health, ZTP automation | [Cumulus Networks Telemetry](docs/cumulus-networks-telemetry.md) |
 
 ### INT Metadata Analysis
 ```go
@@ -196,7 +198,7 @@ The repository includes comprehensive examples demonstrating different use cases
 - **[Enterprise Integration](examples/enterprise-integration.go)** - Multi-vendor telemetry processing
 - **[INT Telemetry](examples/int-telemetry.go)** - In-band Network Telemetry analysis
 - **[Telemetry Extraction](examples/telemetry-extraction.go)** - JSON export for monitoring systems
-- **[Arista & Broadcom Demo](examples/arista-broadcom-telemetry.go)** - Hardware vendor telemetry
+- **[Arista & Broadcom Demo](examples/arista-broadcom-telemetry.go)** - Hardware vendor telemetry analysis
 
 ## Testing and Development
 

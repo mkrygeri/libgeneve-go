@@ -103,6 +103,7 @@ const (
 	OptionClassArista        = 0x000A // Arista Networks
 	OptionClassMellanox      = 0x000B // NVIDIA/Mellanox
 	OptionClassBroadcom      = 0x000C // Broadcom Inc.
+	OptionClassCumulus       = 0x000D // NVIDIA Cumulus Linux
 	
 	// VMware specific option types
 	VMwareTypeNSXMetadata    = 0x01 // NSX metadata
@@ -147,6 +148,22 @@ const (
 	BroadcomTypeFlowletHash  = 0x04 // Flowlet load balancing
 	BroadcomTypeLatencyHist  = 0x05 // Latency histogram
 	BroadcomTypeDropReason   = 0x06 // Packet drop analysis
+	
+	// NVIDIA/Mellanox specific option types
+	MellanoxTypeSpectrum     = 0x01 // Spectrum ASIC telemetry
+	MellanoxTypeConnectX     = 0x02 // ConnectX NIC telemetry
+	MellanoxTypeInBandTelem  = 0x03 // In-band telemetry
+	MellanoxTypeRDMA         = 0x04 // RDMA performance metrics
+	MellanoxTypeNVLink       = 0x05 // NVLink telemetry
+	MellanoxTypeGPUDirect    = 0x06 // GPUDirect metrics
+	
+	// NVIDIA Cumulus Linux specific option types
+	CumulusTypeEVPN          = 0x01 // EVPN route telemetry
+	CumulusTypeVXLAN         = 0x02 // VXLAN tunnel state
+	CumulusTypeMLAG          = 0x03 // Multi-chassis LAG sync
+	CumulusTypeBGP           = 0x04 // BGP session telemetry
+	CumulusTypeFabric        = 0x05 // Fabric health metrics
+	CumulusTypeZTP           = 0x06 // Zero Touch Provisioning
 )
 
 // Header represents the GENEVE fixed header
@@ -560,7 +577,7 @@ func (p *Parser) isEnterpriseOption(class uint16) bool {
 	switch class {
 	case OptionClassVMware, OptionClassCisco, OptionClassMicrosoft, 
 		 OptionClassGoogle, OptionClassAmazon, OptionClassHuawei,
-		 OptionClassJuniper, OptionClassArista, OptionClassMellanox, OptionClassBroadcom:
+		 OptionClassJuniper, OptionClassArista, OptionClassMellanox, OptionClassBroadcom, OptionClassCumulus:
 		return true
 	}
 	
@@ -644,6 +661,12 @@ func (p *Parser) parseEnterpriseOption(option Option) (*EnterpriseOption, *VMwar
 		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
 	case OptionClassAmazon:
 		enterpriseOpt.DecodedData = p.parseAmazonOption(option)
+		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
+	case OptionClassMellanox:
+		enterpriseOpt.DecodedData = p.parseMellanoxOption(option)
+		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
+	case OptionClassCumulus:
+		enterpriseOpt.DecodedData = p.parseCumulusOption(option)
 		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
 	default:
 		// Generic vendor-specific option
@@ -860,6 +883,111 @@ func (p *Parser) parseBroadcomOption(option Option) (*BroadcomSwitchTelemetryOpt
 	return nil, nil
 }
 
+// parseMellanoxOption parses NVIDIA/Mellanox-specific telemetry options
+func (p *Parser) parseMellanoxOption(option Option) map[string]interface{} {
+	decoded := make(map[string]interface{})
+	
+	switch option.Type {
+	case MellanoxTypeSpectrum:
+		decoded["type"] = "Spectrum ASIC Telemetry"
+		if len(option.Data) >= 8 {
+			decoded["asic_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["pipeline_latency"] = binary.BigEndian.Uint32(option.Data[4:8])
+		}
+	case MellanoxTypeConnectX:
+		decoded["type"] = "ConnectX NIC Telemetry"
+		if len(option.Data) >= 12 {
+			decoded["pci_device_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["tx_rate_mbps"] = binary.BigEndian.Uint32(option.Data[4:8])
+			decoded["rx_rate_mbps"] = binary.BigEndian.Uint32(option.Data[8:12])
+		}
+	case MellanoxTypeInBandTelem:
+		decoded["type"] = "In-band Telemetry"
+		if len(option.Data) >= 16 {
+			decoded["switch_id"] = binary.BigEndian.Uint64(option.Data[0:8])
+			decoded["hop_latency"] = binary.BigEndian.Uint32(option.Data[8:12])
+			decoded["queue_depth"] = binary.BigEndian.Uint32(option.Data[12:16])
+		}
+	case MellanoxTypeRDMA:
+		decoded["type"] = "RDMA Performance"
+		if len(option.Data) >= 8 {
+			decoded["qp_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["completion_latency"] = binary.BigEndian.Uint32(option.Data[4:8])
+		}
+	case MellanoxTypeNVLink:
+		decoded["type"] = "NVLink Telemetry"
+		if len(option.Data) >= 12 {
+			decoded["link_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["bandwidth_utilization"] = binary.BigEndian.Uint32(option.Data[4:8])
+			decoded["error_count"] = binary.BigEndian.Uint32(option.Data[8:12])
+		}
+	case MellanoxTypeGPUDirect:
+		decoded["type"] = "GPUDirect Metrics"
+		if len(option.Data) >= 8 {
+			decoded["gpu_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["transfer_rate"] = binary.BigEndian.Uint32(option.Data[4:8])
+		}
+	default:
+		decoded["type"] = fmt.Sprintf("Mellanox Type 0x%02x", option.Type)
+	}
+	
+	decoded["data_length"] = len(option.Data)
+	return decoded
+}
+
+// parseCumulusOption parses NVIDIA Cumulus Linux-specific telemetry options
+func (p *Parser) parseCumulusOption(option Option) map[string]interface{} {
+	decoded := make(map[string]interface{})
+	
+	switch option.Type {
+	case CumulusTypeEVPN:
+		decoded["type"] = "EVPN Route Telemetry"
+		if len(option.Data) >= 12 {
+			decoded["vni"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["route_type"] = binary.BigEndian.Uint32(option.Data[4:8])
+			decoded["next_hop_count"] = binary.BigEndian.Uint32(option.Data[8:12])
+		}
+	case CumulusTypeVXLAN:
+		decoded["type"] = "VXLAN Tunnel State"
+		if len(option.Data) >= 16 {
+			decoded["tunnel_id"] = binary.BigEndian.Uint64(option.Data[0:8])
+			decoded["src_vtep"] = binary.BigEndian.Uint32(option.Data[8:12])
+			decoded["dst_vtep"] = binary.BigEndian.Uint32(option.Data[12:16])
+		}
+	case CumulusTypeMLAG:
+		decoded["type"] = "MLAG Synchronization"
+		if len(option.Data) >= 8 {
+			decoded["mlag_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["sync_state"] = binary.BigEndian.Uint32(option.Data[4:8])
+		}
+	case CumulusTypeBGP:
+		decoded["type"] = "BGP Session Telemetry"
+		if len(option.Data) >= 12 {
+			decoded["peer_asn"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["session_state"] = binary.BigEndian.Uint32(option.Data[4:8])
+			decoded["route_count"] = binary.BigEndian.Uint32(option.Data[8:12])
+		}
+	case CumulusTypeFabric:
+		decoded["type"] = "Fabric Health Metrics"
+		if len(option.Data) >= 16 {
+			decoded["fabric_id"] = binary.BigEndian.Uint64(option.Data[0:8])
+			decoded["link_utilization"] = binary.BigEndian.Uint32(option.Data[8:12])
+			decoded["fabric_health_score"] = binary.BigEndian.Uint32(option.Data[12:16])
+		}
+	case CumulusTypeZTP:
+		decoded["type"] = "Zero Touch Provisioning"
+		if len(option.Data) >= 8 {
+			decoded["device_id"] = binary.BigEndian.Uint32(option.Data[0:4])
+			decoded["provisioning_stage"] = binary.BigEndian.Uint32(option.Data[4:8])
+		}
+	default:
+		decoded["type"] = fmt.Sprintf("Cumulus Type 0x%02x", option.Type)
+	}
+	
+	decoded["data_length"] = len(option.Data)
+	return decoded
+}
+
 // parseGenericVendorOption parses generic vendor-specific options
 func (p *Parser) parseGenericVendorOption(option Option) map[string]interface{} {
 	decoded := make(map[string]interface{})
@@ -902,6 +1030,8 @@ func (p *Parser) getVendorName(class uint16) string {
 		return "NVIDIA/Mellanox"
 	case OptionClassBroadcom:
 		return "Broadcom Inc."
+	case OptionClassCumulus:
+		return "NVIDIA Cumulus Linux"
 	default:
 		if class >= 0x0100 && class <= 0xFEFF {
 			return fmt.Sprintf("Vendor-Specific (0x%04x)", class)

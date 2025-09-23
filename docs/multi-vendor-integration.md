@@ -33,6 +33,8 @@ func processMultiVendorTelemetry(packets [][]byte) *NetworkTelemetryReport {
         processAmazonTelemetry(result.EnterpriseOptions, report)
         processAristaTelemetry(result.AristaOptions, result.AristaLatencyOptions, report)
         processBroadcomTelemetry(result.BroadcomOptions, result.BroadcomLatencyOptions, report)
+        processNVIDIAMellanoxTelemetry(result.EnterpriseOptions, report)
+        processCumulusTelemetry(result.EnterpriseOptions, report)
         
         // Correlate with INT metadata
         correlateINTTelemetry(result.INTOptions, report)
@@ -152,6 +154,42 @@ func trackCrossVendorFlows(results []*geneve.ParseResult) []NetworkFlow {
                 if flow.SourceVendor != "Broadcom" {
                     flow.Path = append(flow.Path, fmt.Sprintf("Broadcom:Switch-%d", 
                         broadcom.SwitchID))
+                }
+            }
+        }
+        
+        // Add NVIDIA/Mellanox telemetry
+        for _, opt := range result.EnterpriseOptions {
+            if opt.Vendor == "NVIDIA/Mellanox" && opt.Decoded {
+                for flowKey, flow := range flowMap {
+                    switch opt.DecodedData["type"] {
+                    case "Spectrum ASIC Telemetry":
+                        if asicID, ok := opt.DecodedData["asic_id"].(uint32); ok {
+                            flow.Path = append(flow.Path, fmt.Sprintf("NVIDIA/Mellanox:ASIC-%d", asicID))
+                        }
+                    case "ConnectX NIC Telemetry":
+                        if deviceID, ok := opt.DecodedData["pci_device_id"].(uint32); ok {
+                            flow.Path = append(flow.Path, fmt.Sprintf("NVIDIA/Mellanox:NIC-%d", deviceID))
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Add Cumulus Networks telemetry
+        for _, opt := range result.EnterpriseOptions {
+            if opt.Vendor == "NVIDIA Cumulus Linux" && opt.Decoded {
+                for flowKey, flow := range flowMap {
+                    switch opt.DecodedData["type"] {
+                    case "EVPN Telemetry":
+                        if vtepIP, ok := opt.DecodedData["vtep_ip"].(uint32); ok {
+                            flow.Path = append(flow.Path, fmt.Sprintf("Cumulus:VTEP-%s", intToIP(vtepIP)))
+                        }
+                    case "MLAG Status":
+                        if peerID, ok := opt.DecodedData["peer_id"].(uint32); ok {
+                            flow.Path = append(flow.Path, fmt.Sprintf("Cumulus:MLAG-%d", peerID))
+                        }
+                    }
                 }
             }
         }
@@ -299,6 +337,61 @@ func generatePerformanceDashboard(results []*geneve.ParseResult) PerformanceDash
             metrics.TotalThroughput += broadcom.PacketRate * 64 * 8 // Estimate bytes
             metrics.BufferUtilization = float64(broadcom.BufferUtil) / 100.0
             metrics.SampleCount++
+        }
+        
+        // NVIDIA/Mellanox hardware metrics
+        for _, opt := range result.EnterpriseOptions {
+            if opt.Vendor == "NVIDIA/Mellanox" && opt.Decoded {
+                if dashboard.VendorMetrics["NVIDIA/Mellanox"] == nil {
+                    dashboard.VendorMetrics["NVIDIA/Mellanox"] = &PerformanceMetrics{}
+                }
+                metrics := dashboard.VendorMetrics["NVIDIA/Mellanox"]
+                
+                switch opt.DecodedData["type"] {
+                case "Spectrum ASIC Telemetry":
+                    if latency, ok := opt.DecodedData["pipeline_latency"].(uint32); ok {
+                        metrics.AvgLatency += float64(latency)
+                    }
+                case "ConnectX NIC Telemetry":
+                    if txRate, ok := opt.DecodedData["tx_rate_mbps"].(uint32); ok {
+                        metrics.TotalThroughput += uint64(txRate) * 1000000 // Convert to bps
+                    }
+                case "RDMA Performance":
+                    if completionLatency, ok := opt.DecodedData["completion_latency"].(uint32); ok {
+                        metrics.AvgLatency += float64(completionLatency)
+                    }
+                }
+                metrics.SampleCount++
+            }
+        }
+        
+        // Cumulus Networks fabric metrics
+        for _, opt := range result.EnterpriseOptions {
+            if opt.Vendor == "NVIDIA Cumulus Linux" && opt.Decoded {
+                if dashboard.VendorMetrics["Cumulus Networks"] == nil {
+                    dashboard.VendorMetrics["Cumulus Networks"] = &PerformanceMetrics{}
+                }
+                metrics := dashboard.VendorMetrics["Cumulus Networks"]
+                
+                switch opt.DecodedData["type"] {
+                case "VXLAN Performance":
+                    if encapLatency, ok := opt.DecodedData["encap_latency"].(uint32); ok {
+                        metrics.AvgLatency += float64(encapLatency)
+                    }
+                    if packetRate, ok := opt.DecodedData["packet_rate"].(uint32); ok {
+                        metrics.TotalThroughput += uint64(packetRate) * 64 * 8 // Estimate bytes
+                    }
+                case "BGP Performance":
+                    if routeCount, ok := opt.DecodedData["route_count"].(uint32); ok {
+                        metrics.RouteTableSize = uint64(routeCount)
+                    }
+                case "Fabric Health":
+                    if errorRate, ok := opt.DecodedData["error_rate"].(uint32); ok {
+                        metrics.ErrorRate = float64(errorRate) / 10000000.0 // Convert to percentage
+                    }
+                }
+                metrics.SampleCount++
+            }
         }
         
         // Cloud vendor metrics from enterprise options
@@ -478,6 +571,190 @@ func processWithRecovery(result *geneve.ParseResult) (err error) {
     
     return nil
 }
+
+## Vendor-Specific Processing Functions
+
+### NVIDIA/Mellanox Telemetry Processing
+```go
+func processNVIDIAMellanoxTelemetry(options []geneve.EnterpriseOption, report *NetworkTelemetryReport) {
+    vendor := "NVIDIA/Mellanox"
+    if report.VendorMetrics[vendor] == nil {
+        report.VendorMetrics[vendor] = &VendorMetrics{}
+    }
+    
+    for _, opt := range options {
+        if opt.Vendor == vendor && opt.Decoded {
+            switch opt.DecodedData["type"] {
+            case "Spectrum ASIC Telemetry":
+                if asicID, ok := opt.DecodedData["asic_id"].(uint32); ok {
+                    if latency, ok := opt.DecodedData["pipeline_latency"].(uint32); ok {
+                        report.VendorMetrics[vendor].ASICMetrics = append(
+                            report.VendorMetrics[vendor].ASICMetrics,
+                            ASICMetric{
+                                ID:      asicID,
+                                Latency: latency,
+                                Type:    "Spectrum",
+                            })
+                    }
+                }
+                
+            case "ConnectX NIC Telemetry":
+                if deviceID, ok := opt.DecodedData["pci_device_id"].(uint32); ok {
+                    if txRate, ok := opt.DecodedData["tx_rate_mbps"].(uint32); ok {
+                        if rxRate, ok := opt.DecodedData["rx_rate_mbps"].(uint32); ok {
+                            report.VendorMetrics[vendor].NICMetrics = append(
+                                report.VendorMetrics[vendor].NICMetrics,
+                                NICMetric{
+                                    DeviceID: deviceID,
+                                    TxRate:   txRate,
+                                    RxRate:   rxRate,
+                                    Type:     "ConnectX",
+                                })
+                        }
+                    }
+                }
+                
+            case "RDMA Performance":
+                if qpID, ok := opt.DecodedData["qp_id"].(uint32); ok {
+                    if completionLatency, ok := opt.DecodedData["completion_latency"].(uint32); ok {
+                        report.VendorMetrics[vendor].RDMAMetrics = append(
+                            report.VendorMetrics[vendor].RDMAMetrics,
+                            RDMAMetric{
+                                QPID:              qpID,
+                                CompletionLatency: completionLatency,
+                            })
+                    }
+                }
+                
+            case "NVLink Telemetry":
+                if linkID, ok := opt.DecodedData["link_id"].(uint32); ok {
+                    if utilization, ok := opt.DecodedData["bandwidth_utilization"].(uint32); ok {
+                        report.VendorMetrics[vendor].NVLinkMetrics = append(
+                            report.VendorMetrics[vendor].NVLinkMetrics,
+                            NVLinkMetric{
+                                LinkID:      linkID,
+                                Utilization: utilization,
+                            })
+                    }
+                }
+                
+            case "GPUDirect Metrics":
+                if gpuID, ok := opt.DecodedData["gpu_id"].(uint32); ok {
+                    if transferRate, ok := opt.DecodedData["transfer_rate"].(uint32); ok {
+                        report.VendorMetrics[vendor].GPUDirectMetrics = append(
+                            report.VendorMetrics[vendor].GPUDirectMetrics,
+                            GPUDirectMetric{
+                                GPUID:        gpuID,
+                                TransferRate: transferRate,
+                            })
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### Cumulus Networks Telemetry Processing
+```go
+func processCumulusTelemetry(options []geneve.EnterpriseOption, report *NetworkTelemetryReport) {
+    vendor := "NVIDIA Cumulus Linux"
+    if report.VendorMetrics[vendor] == nil {
+        report.VendorMetrics[vendor] = &VendorMetrics{}
+    }
+    
+    for _, opt := range options {
+        if opt.Vendor == vendor && opt.Decoded {
+            switch opt.DecodedData["type"] {
+            case "EVPN Telemetry":
+                if vtepIP, ok := opt.DecodedData["vtep_ip"].(uint32); ok {
+                    if vniID, ok := opt.DecodedData["vni_id"].(uint32); ok {
+                        if macCount, ok := opt.DecodedData["mac_count"].(uint32); ok {
+                            report.VendorMetrics[vendor].EVPNMetrics = append(
+                                report.VendorMetrics[vendor].EVPNMetrics,
+                                EVPNMetric{
+                                    VTEPIP:   vtepIP,
+                                    VNIID:    vniID,
+                                    MACCount: macCount,
+                                })
+                        }
+                    }
+                }
+                
+            case "VXLAN Performance":
+                if tunnelID, ok := opt.DecodedData["tunnel_id"].(uint32); ok {
+                    if encapLatency, ok := opt.DecodedData["encap_latency"].(uint32); ok {
+                        if packetRate, ok := opt.DecodedData["packet_rate"].(uint32); ok {
+                            report.VendorMetrics[vendor].VXLANMetrics = append(
+                                report.VendorMetrics[vendor].VXLANMetrics,
+                                VXLANMetric{
+                                    TunnelID:     tunnelID,
+                                    EncapLatency: encapLatency,
+                                    PacketRate:   packetRate,
+                                })
+                        }
+                    }
+                }
+                
+            case "MLAG Status":
+                if peerID, ok := opt.DecodedData["peer_id"].(uint32); ok {
+                    if syncStatus, ok := opt.DecodedData["sync_status"].(uint32); ok {
+                        if bondCount, ok := opt.DecodedData["bond_count"].(uint32); ok {
+                            report.VendorMetrics[vendor].MLAGMetrics = append(
+                                report.VendorMetrics[vendor].MLAGMetrics,
+                                MLAGMetric{
+                                    PeerID:     peerID,
+                                    SyncStatus: syncStatus,
+                                    BondCount:  bondCount,
+                                    IsSynced:   syncStatus == 0,
+                                })
+                        }
+                    }
+                }
+                
+            case "BGP Performance":
+                if routeCount, ok := opt.DecodedData["route_count"].(uint32); ok {
+                    if convergenceTime, ok := opt.DecodedData["convergence_time"].(uint32); ok {
+                        report.VendorMetrics[vendor].BGPMetrics = append(
+                            report.VendorMetrics[vendor].BGPMetrics,
+                            BGPMetric{
+                                RouteCount:      routeCount,
+                                ConvergenceTime: convergenceTime,
+                            })
+                    }
+                }
+                
+            case "Fabric Health":
+                if spineCount, ok := opt.DecodedData["spine_count"].(uint32); ok {
+                    if leafCount, ok := opt.DecodedData["leaf_count"].(uint32); ok {
+                        if errorRate, ok := opt.DecodedData["error_rate"].(uint32); ok {
+                            report.VendorMetrics[vendor].FabricHealthMetrics = append(
+                                report.VendorMetrics[vendor].FabricHealthMetrics,
+                                FabricHealthMetric{
+                                    SpineCount: spineCount,
+                                    LeafCount:  leafCount,
+                                    ErrorRate:  errorRate,
+                                })
+                        }
+                    }
+                }
+                
+            case "ZTP Status":
+                if provisionState, ok := opt.DecodedData["provision_state"].(uint32); ok {
+                    if automationLevel, ok := opt.DecodedData["automation_level"].(uint32); ok {
+                        report.VendorMetrics[vendor].ZTPMetrics = append(
+                            report.VendorMetrics[vendor].ZTPMetrics,
+                            ZTPMetric{
+                                ProvisionState:  provisionState,
+                                AutomationLevel: automationLevel,
+                            })
+                    }
+                }
+            }
+        }
+    }
+}
+```
 ```
 
 ## Configuration Management
@@ -520,6 +797,23 @@ vendors:
     enabled: true
     switch_telemetry: true
     histogram_analysis: true
+  
+  nvidia_mellanox:
+    enabled: true
+    spectrum_asic: true
+    connectx_nic: true
+    rdma_monitoring: true
+    nvlink_tracking: true
+    gpudirect_analysis: true
+  
+  cumulus:
+    enabled: true
+    evpn_monitoring: true
+    vxlan_analysis: true
+    mlag_tracking: true
+    bgp_performance: true
+    fabric_health: true
+    ztp_automation: true
 
 processing:
   batch_size: 1000
@@ -532,6 +826,19 @@ export:
   sampling_rate: 0.1
 ```
 
+## Utility Functions
+
+```go
+// Utility function for IP address conversion
+func intToIP(ip uint32) string {
+    return fmt.Sprintf("%d.%d.%d.%d",
+        (ip>>24)&0xFF,
+        (ip>>16)&0xFF,
+        (ip>>8)&0xFF,
+        ip&0xFF)
+}
+```
+
 ## Related Documentation
 
 - [VMware NSX Telemetry](vmware-nsx-telemetry.md)
@@ -539,4 +846,7 @@ export:
 - [Microsoft Azure Telemetry](microsoft-azure-telemetry.md)
 - [Google Cloud Telemetry](google-cloud-telemetry.md)
 - [Amazon AWS Telemetry](amazon-aws-telemetry.md)
-- [Arista and Broadcom Telemetry](ARISTA-BROADCOM-TELEMETRY.md)
+- [Arista EOS Telemetry](arista-eos-telemetry.md)
+- [Broadcom Telemetry](broadcom-telemetry.md)
+- [NVIDIA/Mellanox Telemetry](nvidia-mellanox-telemetry.md)
+- [Cumulus Networks Telemetry](cumulus-networks-telemetry.md)

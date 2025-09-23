@@ -541,4 +541,5 @@ for _, enterprise := range result.EnterpriseOptions {
 
 - [Enterprise Telemetry Overview](../README.md#enterprise-telemetry-support)
 - [Multi-Vendor Integration](multi-vendor-integration.md)
-- [Arista and Broadcom Telemetry](ARISTA-BROADCOM-TELEMETRY.md)
+- [Arista EOS Telemetry](arista-eos-telemetry.md)
+- [Broadcom Telemetry](broadcom-telemetry.md)
