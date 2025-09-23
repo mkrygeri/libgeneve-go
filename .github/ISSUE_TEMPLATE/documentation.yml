@@ -1,0 +1,79 @@
+name: Documentation Improvement
+description: Suggest improvements to documentation
+title: "[DOCS] "
+labels: ["documentation", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📚 Documentation Improvement
+        
+        We welcome documentation improvements! This includes:
+        - Fixing typos and grammar
+        - Adding examples
+        - Clarifying instructions
+        - Improving vendor telemetry guides
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - README.md
+        - API Documentation
+        - Vendor Telemetry Guides
+        - Installation Instructions
+        - Usage Examples
+        - Command-line Help
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_issue
+    attributes:
+      label: Current Issue
+      description: What's wrong with the current documentation?
+      placeholder: Describe the problem with the current documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested_improvement
+    attributes:
+      label: Suggested Improvement
+      description: How should it be improved?
+      placeholder: Describe your suggested improvement
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any additional context or screenshots
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution_type
+    attributes:
+      label: Contribution Type
+      description: How would you like to contribute?
+      options:
+        - label: I want to submit a pull request with the documentation changes
+        - label: I'm reporting an issue for someone else to fix
+        - label: I need help understanding how to make the changes
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have read the CONTRIBUTING.md file
+          required: true
+        - label: This is a documentation-only change (no code modifications)
+          required: true
+        - label: I understand the licensing restrictions
+          required: true

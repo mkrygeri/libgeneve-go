@@ -1,0 +1,110 @@
+name: Commercial License Inquiry
+description: Inquire about commercial licensing options
+title: "[COMMERCIAL] "
+labels: ["commercial", "licensing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 💼 Commercial License Inquiry
+        
+        This software is currently under a restrictive proprietary license that prohibits commercial use.
+        
+        If you're interested in commercial licensing, please provide the information below.
+
+  - type: input
+    id: company
+    attributes:
+      label: Company/Organization
+      description: Your company or organization name
+    validations:
+      required: true
+
+  - type: input
+    id: contact_info
+    attributes:
+      label: Contact Information
+      description: Your email address for licensing discussions
+    validations:
+      required: true
+
+  - type: dropdown
+    id: use_case
+    attributes:
+      label: Intended Use Case
+      description: How do you plan to use the software?
+      options:
+        - Network monitoring and analysis
+        - Security research and forensics
+        - Educational/training purposes
+        - Integration into commercial product
+        - Cloud/SaaS offering
+        - Government/military application
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case_details
+    attributes:
+      label: Use Case Details
+      description: Please provide more details about your intended use case
+      placeholder: Describe your specific use case, scale, and requirements
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment_scale
+    attributes:
+      label: Deployment Scale
+      description: What scale of deployment are you considering?
+      options:
+        - Small scale (< 100 users)
+        - Medium scale (100-1000 users)
+        - Large scale (1000-10000 users)
+        - Enterprise scale (10000+ users)
+        - Cloud/unlimited scale
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_requirements
+    attributes:
+      label: Technical Requirements
+      description: Any specific technical requirements or modifications needed?
+      placeholder: Describe any customizations, integrations, or specific features you need
+    validations:
+      required: false
+
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline
+      description: What is your desired timeline for licensing and deployment?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: agreement
+    attributes:
+      label: Agreement
+      options:
+        - label: I understand this software is currently under restrictive licensing
+          required: true
+        - label: I am inquiring about obtaining proper commercial licensing
+          required: true
+        - label: I have the authority to make licensing decisions for my organization
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Next Steps
+        
+        After submitting this inquiry:
+        1. We will review your request within 5 business days
+        2. A licensing representative will contact you via email
+        3. We will discuss terms, pricing, and technical requirements
+        4. A custom commercial license agreement will be prepared
+        
+        **Note**: Commercial licensing discussions will be conducted via private email, not through this public issue tracker.

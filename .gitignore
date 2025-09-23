@@ -1,0 +1,79 @@
+# .gitignore for Go GENEVE Protocol Parser
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+build/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test artifacts
+test-pcaps/
+*.pcap
+*.pcapng
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Python virtual environment (if using Python tools)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Documentation build artifacts
+docs/_build/
+docs/build/
+
+# Profiling files
+*.prof
+*.pprof
+cpu.prof
+mem.prof
+
+# Local configuration files
+.env
+.env.local
+config.local.*
+
+# Build artifacts
+*.deb
+*.rpm
+*.tar.gz
+*.zip
