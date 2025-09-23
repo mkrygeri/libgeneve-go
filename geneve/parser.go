@@ -106,7 +106,8 @@ const (
 	OptionClassCumulus       = 0x000D // NVIDIA Cumulus Linux
 	
 	// Extended vendor classes (0x0100+ range)
-	OptionClassVMwareExtended = 0x0102 // VMware Extended/NSX-T
+	OptionClassOVN            = 0x0102 // Open Virtual Networking (OVN)
+	OptionClassVMwareExtended = 0x0120 // VMware Extended/NSX-T
 	OptionClassCiscoExtended  = 0x0104 // Cisco Extended/ACI
 	OptionClassOpenStack      = 0x0105 // OpenStack Neutron
 	OptionClassKubernetes     = 0x0106 // Kubernetes CNI
@@ -121,6 +122,14 @@ const (
 	VMwareTypeNSXTMetadata   = 0x80 // NSX-T advanced metadata
 	VMwareTypeDistFirewall   = 0x81 // Distributed Firewall
 	VMwareTypeLoadBalancer   = 0x82 // Load Balancer metadata
+	
+	// OVN (Open Virtual Networking) specific option types
+	OVNTypeMetadata          = 0x01 // OVN metadata
+	OVNTypeTunnelKey         = 0x02 // OVN tunnel key
+	OVNTypeLogicalPort       = 0x03 // OVN logical port
+	OVNTypeConntrack         = 0x80 // OVN connection tracking metadata
+	OVNTypeLoadBalancer      = 0x81 // OVN load balancer
+	OVNTypeACLMetadata       = 0x82 // OVN ACL metadata
 	
 	// Cisco specific option types  
 	CiscoTypeACI             = 0x01 // Application Centric Infrastructure
@@ -1023,6 +1032,8 @@ func (p *Parser) getVendorName(class uint16) string {
 	switch class {
 	case OptionClassVMware:
 		return "VMware Inc."
+	case OptionClassOVN:
+		return "Open Virtual Networking (OVN)"
 	case OptionClassVMwareExtended:
 		return "VMware NSX-T"
 	case OptionClassCisco:
@@ -1346,6 +1357,23 @@ func (o *Option) GetOptionTypeName() string {
 			return "Load Balancer Metadata"
 		default:
 			return fmt.Sprintf("VMware Type 0x%02x", o.Type)
+		}
+	case OptionClassOVN: // Open Virtual Networking (OVN)
+		switch o.Type {
+		case OVNTypeMetadata:
+			return "OVN Metadata"
+		case OVNTypeTunnelKey:
+			return "OVN Tunnel Key"
+		case OVNTypeLogicalPort:
+			return "OVN Logical Port"
+		case OVNTypeConntrack:
+			return "OVN Connection Tracking"
+		case OVNTypeLoadBalancer:
+			return "OVN Load Balancer"
+		case OVNTypeACLMetadata:
+			return "OVN ACL Metadata"
+		default:
+			return fmt.Sprintf("OVN Type 0x%02x", o.Type)
 		}
 	case OptionClassVMwareExtended: // VMware Extended/NSX-T
 		switch o.Type {
