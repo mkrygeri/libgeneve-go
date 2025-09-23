@@ -105,11 +105,22 @@ const (
 	OptionClassBroadcom      = 0x000C // Broadcom Inc.
 	OptionClassCumulus       = 0x000D // NVIDIA Cumulus Linux
 	
+	// Extended vendor classes (0x0100+ range)
+	OptionClassVMwareExtended = 0x0102 // VMware Extended/NSX-T
+	OptionClassCiscoExtended  = 0x0104 // Cisco Extended/ACI
+	OptionClassOpenStack      = 0x0105 // OpenStack Neutron
+	OptionClassKubernetes     = 0x0106 // Kubernetes CNI
+	OptionClassContainerD     = 0x0107 // ContainerD/Docker
+	OptionClassOpenShift      = 0x0108 // Red Hat OpenShift
+	
 	// VMware specific option types
 	VMwareTypeNSXMetadata    = 0x01 // NSX metadata
 	VMwareTypeVXLANCompat    = 0x02 // VXLAN compatibility
 	VMwareTypeVDSMetadata    = 0x03 // vSphere Distributed Switch metadata
 	VMwareTypeDVSExtension   = 0x04 // DVS extension
+	VMwareTypeNSXTMetadata   = 0x80 // NSX-T advanced metadata
+	VMwareTypeDistFirewall   = 0x81 // Distributed Firewall
+	VMwareTypeLoadBalancer   = 0x82 // Load Balancer metadata
 	
 	// Cisco specific option types  
 	CiscoTypeACI             = 0x01 // Application Centric Infrastructure
@@ -1012,8 +1023,12 @@ func (p *Parser) getVendorName(class uint16) string {
 	switch class {
 	case OptionClassVMware:
 		return "VMware Inc."
+	case OptionClassVMwareExtended:
+		return "VMware NSX-T"
 	case OptionClassCisco:
 		return "Cisco Systems Inc."
+	case OptionClassCiscoExtended:
+		return "Cisco ACI Extended"
 	case OptionClassMicrosoft:
 		return "Microsoft Corporation"
 	case OptionClassGoogle:
@@ -1032,6 +1047,14 @@ func (p *Parser) getVendorName(class uint16) string {
 		return "Broadcom Inc."
 	case OptionClassCumulus:
 		return "NVIDIA Cumulus Linux"
+	case OptionClassOpenStack:
+		return "OpenStack Neutron"
+	case OptionClassKubernetes:
+		return "Kubernetes CNI"
+	case OptionClassContainerD:
+		return "ContainerD/Docker"
+	case OptionClassOpenShift:
+		return "Red Hat OpenShift"
 	default:
 		if class >= 0x0100 && class <= 0xFEFF {
 			return fmt.Sprintf("Vendor-Specific (0x%04x)", class)
@@ -1315,8 +1338,27 @@ func (o *Option) GetOptionTypeName() string {
 			return "vSphere Distributed Switch"
 		case VMwareTypeDVSExtension:
 			return "DVS Extension"
+		case VMwareTypeNSXTMetadata:
+			return "NSX-T Advanced Metadata"
+		case VMwareTypeDistFirewall:
+			return "Distributed Firewall"
+		case VMwareTypeLoadBalancer:
+			return "Load Balancer Metadata"
 		default:
 			return fmt.Sprintf("VMware Type 0x%02x", o.Type)
+		}
+	case OptionClassVMwareExtended: // VMware Extended/NSX-T
+		switch o.Type {
+		case VMwareTypeNSXMetadata:
+			return "NSX Metadata"
+		case VMwareTypeNSXTMetadata:
+			return "NSX-T Advanced Metadata"
+		case VMwareTypeDistFirewall:
+			return "Distributed Firewall"
+		case VMwareTypeLoadBalancer:
+			return "Load Balancer Metadata"
+		default:
+			return fmt.Sprintf("VMware NSX-T Type 0x%02x", o.Type)
 		}
 	case OptionClassCisco: // Cisco
 		switch o.Type {
