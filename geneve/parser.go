@@ -42,14 +42,72 @@ const (
 	OptionClassINTDestination = 0x010302
 	OptionClassINTMX          = 0x010303
 
-	// Standard option classes
+	// Standard option classes (0x0000-0x00FF IETF Review)
 	OptionClassExperimental  = 0x0000 // Experimental use
-	OptionClassLinuxGeneric  = 0x0001 // Linux generic
-	OptionClassOpenVSwitch   = 0x0002 // Open vSwitch
-	OptionClassVMware        = 0x0003 // VMware
-	OptionClassCisco         = 0x0004 // Cisco
-	OptionClassINT           = 0x0103 // In-band Network Telemetry
+	
+	// IANA assigned classes (0x0100-0xFEFF First Come First Served)
+	OptionClassLinux         = 0x0100 // Linux
+	OptionClassOVS           = 0x0101 // Open vSwitch (OVS)
+	OptionClassOVN           = 0x0102 // Open Virtual Networking (OVN)
+	OptionClassINT           = 0x0103 // In-band Network Telemetry (INT)
+	OptionClassVMware        = 0x0104 // VMware, Inc.
+	OptionClassAmazon        = 0x0105 // Amazon.com, Inc.
+	OptionClassCisco         = 0x0106 // Cisco Systems, Inc.
+	OptionClassOracle        = 0x0107 // Oracle Corporation
+	OptionClassAmazonExt1    = 0x0108 // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt2    = 0x0109 // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt3    = 0x010A // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt4    = 0x010B // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt5    = 0x010C // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt6    = 0x010D // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt7    = 0x010E // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt8    = 0x010F // Amazon.com, Inc. (extended range)
+	OptionClassAmazonExt9    = 0x0110 // Amazon.com, Inc. (extended range)
+	OptionClassIBM1          = 0x0111 // IBM
+	OptionClassIBM2          = 0x0112 // IBM
+	OptionClassIBM3          = 0x0113 // IBM
+	OptionClassIBM4          = 0x0114 // IBM
+	OptionClassIBM5          = 0x0115 // IBM
+	OptionClassIBM6          = 0x0116 // IBM
+	OptionClassIBM7          = 0x0117 // IBM
+	OptionClassIBM8          = 0x0118 // IBM
+	OptionClassEricsson1     = 0x0119 // Ericsson
+	OptionClassEricsson2     = 0x011A // Ericsson
+	OptionClassOxide         = 0x0129 // Oxide Computer Company
+	OptionClassCiscoExt1     = 0x0130 // Cisco Systems, Inc. (extended)
+	OptionClassCiscoExt2     = 0x0131 // Cisco Systems, Inc. (extended)
+	OptionClassGoogle1       = 0x0132 // Google LLC
+	OptionClassGoogle2       = 0x0133 // Google LLC
+	OptionClassGoogle3       = 0x0134 // Google LLC
+	OptionClassGoogle4       = 0x0135 // Google LLC
+	OptionClassInfoQuick     = 0x0136 // InfoQuick Global Connection Tech Ltd.
+	OptionClassAlibaba1      = 0x0137 // Alibaba, inc
+	OptionClassPaloAlto1     = 0x0141 // Palo Alto Networks
+	OptionClassPaloAlto2     = 0x0142 // Palo Alto Networks
+	OptionClassPaloAlto3     = 0x0143 // Palo Alto Networks
+	OptionClassPaloAlto4     = 0x0144 // Palo Alto Networks
+	OptionClassHuawei1       = 0x0145 // Huawei Technologies Co., Ltd
+	OptionClassHuawei2       = 0x0146 // Huawei Technologies Co., Ltd
+	OptionClassEMnify        = 0x014A // EMnify GmbH
+	OptionClassCilium        = 0x014B // Cilium
+	OptionClassCorelight     = 0x014C // Corelight, Inc.
+	OptionClass1NCE          = 0x014D // 1NCE GmbH
+	OptionClassTelecom1      = 0x014E // Cloud of China Telecom (CTYUN)
+	OptionClassVolcengine1   = 0x0158 // Volcengine, inc
+	OptionClassNat64         = 0x0162 // nat64.net
+	OptionClassMultiSegment  = 0x0163 // Multi Segment SD-WAN
+	OptionClassCPacket       = 0x0164 // cPacket Networks
+	OptionClassTencent1      = 0x0165 // Tencent
+	OptionClassTencent2      = 0x0166 // Tencent
+	OptionClassTencent3      = 0x0167 // Tencent
+	OptionClassExtraHop      = 0x0168 // ExtraHop Networks, Inc.
+	OptionClassSoosanINT     = 0x0169 // Soosan INT Co., Ltd.
+	
 	OptionClassPlatform      = 0xFFFF // Platform specific
+	
+	// Legacy mappings (deprecated - use IANA assignments above)
+	OptionClassLinuxGeneric  = OptionClassLinux  // Backward compatibility
+	OptionClassOpenVSwitch   = OptionClassOVS    // Backward compatibility
 
 	// INT option types
 	INTTypeMetadata    = 0x01 // INT metadata
@@ -93,26 +151,6 @@ const (
 	INTInstrEgressTXUtil      = 0x0080 // Egress TX utilization
 	INTInstrBufferPool        = 0x0040 // Buffer pool occupancy
 	INTInstrChecksumComplement = 0x0020 // Checksum complement
-	
-	// Enterprise-specific option classes (from IANA registry and vendor implementations)
-	OptionClassMicrosoft     = 0x0005 // Microsoft Corporation
-	OptionClassGoogle        = 0x0006 // Google Inc.
-	OptionClassAmazon        = 0x0007 // Amazon.com Inc.
-	OptionClassHuawei        = 0x0008 // Huawei Technologies
-	OptionClassJuniper       = 0x0009 // Juniper Networks
-	OptionClassArista        = 0x000A // Arista Networks
-	OptionClassMellanox      = 0x000B // NVIDIA/Mellanox
-	OptionClassBroadcom      = 0x000C // Broadcom Inc.
-	OptionClassCumulus       = 0x000D // NVIDIA Cumulus Linux
-	
-	// Extended vendor classes (0x0100+ range)
-	OptionClassOVN            = 0x0102 // Open Virtual Networking (OVN)
-	OptionClassVMwareExtended = 0x0120 // VMware Extended/NSX-T
-	OptionClassCiscoExtended  = 0x0104 // Cisco Extended/ACI
-	OptionClassOpenStack      = 0x0105 // OpenStack Neutron
-	OptionClassKubernetes     = 0x0106 // Kubernetes CNI
-	OptionClassContainerD     = 0x0107 // ContainerD/Docker
-	OptionClassOpenShift      = 0x0108 // Red Hat OpenShift
 	
 	// VMware specific option types
 	VMwareTypeNSXMetadata    = 0x01 // NSX metadata
@@ -593,17 +631,28 @@ func (p *Parser) parseINTMetadataOption(option Option) (INTMetadataOption, error
 
 // isEnterpriseOption checks if an option class is enterprise/vendor-specific
 func (p *Parser) isEnterpriseOption(class uint16) bool {
-	// Check known enterprise classes
+	// Check known IANA-assigned enterprise classes
 	switch class {
-	case OptionClassVMware, OptionClassCisco, OptionClassMicrosoft, 
-		 OptionClassGoogle, OptionClassAmazon, OptionClassHuawei,
-		 OptionClassJuniper, OptionClassArista, OptionClassMellanox, OptionClassBroadcom, OptionClassCumulus:
+	case OptionClassLinux, OptionClassOVS, OptionClassOVN, OptionClassINT, 
+		 OptionClassVMware, OptionClassAmazon, OptionClassCisco, OptionClassOracle,
+		 OptionClassAmazonExt1, OptionClassAmazonExt2, OptionClassAmazonExt3, OptionClassAmazonExt4,
+		 OptionClassAmazonExt5, OptionClassAmazonExt6, OptionClassAmazonExt7, OptionClassAmazonExt8, 
+		 OptionClassAmazonExt9, OptionClassIBM1, OptionClassIBM2, OptionClassIBM3, OptionClassIBM4,
+		 OptionClassIBM5, OptionClassIBM6, OptionClassIBM7, OptionClassIBM8, OptionClassEricsson1, 
+		 OptionClassEricsson2, OptionClassOxide, OptionClassCiscoExt1, OptionClassCiscoExt2,
+		 OptionClassGoogle1, OptionClassGoogle2, OptionClassGoogle3, OptionClassGoogle4,
+		 OptionClassInfoQuick, OptionClassAlibaba1, OptionClassPaloAlto1, OptionClassPaloAlto2,
+		 OptionClassPaloAlto3, OptionClassPaloAlto4, OptionClassHuawei1, OptionClassHuawei2,
+		 OptionClassEMnify, OptionClassCilium, OptionClassCorelight, OptionClass1NCE,
+		 OptionClassTelecom1, OptionClassVolcengine1, OptionClassNat64, OptionClassMultiSegment,
+		 OptionClassCPacket, OptionClassTencent1, OptionClassTencent2, OptionClassTencent3,
+		 OptionClassExtraHop, OptionClassSoosanINT:
 		return true
 	}
 	
 	// Exclude standard IETF classes
 	switch class {
-	case 0x0000, 0x0001, 0x0002, 0x0103, 0xFFFF: // Experimental, Linux, OVS, INT, Platform
+	case 0x0000: // Standard/Experimental
 		return false
 	}
 	
@@ -645,48 +694,19 @@ func (p *Parser) parseEnterpriseOption(option Option) (*EnterpriseOption, *VMwar
 			enterpriseOpt.DecodedData = p.vmwareOptionToMap(*vmwareOpt)
 			return enterpriseOpt, vmwareOpt, nil, nil, nil, nil, nil
 		}
-	case OptionClassCisco:
+	case OptionClassCisco, OptionClassCiscoExt1, OptionClassCiscoExt2:
 		if ciscoOpt := p.parseCiscoOption(option); ciscoOpt != nil {
 			enterpriseOpt.Decoded = true
 			enterpriseOpt.DecodedData = p.ciscoOptionToMap(*ciscoOpt)
 			return enterpriseOpt, nil, ciscoOpt, nil, nil, nil, nil
 		}
-	case OptionClassArista:
-		if aristaOpt, aristaLatOpt := p.parseAristaOption(option); aristaOpt != nil || aristaLatOpt != nil {
-			enterpriseOpt.Decoded = true
-			if aristaOpt != nil {
-				enterpriseOpt.DecodedData = p.aristaOptionToMap(*aristaOpt)
-				return enterpriseOpt, nil, nil, aristaOpt, nil, nil, nil
-			} else if aristaLatOpt != nil {
-				enterpriseOpt.DecodedData = p.aristaLatencyOptionToMap(*aristaLatOpt)
-				return enterpriseOpt, nil, nil, nil, aristaLatOpt, nil, nil
-			}
-		}
-	case OptionClassBroadcom:
-		if broadcomOpt, broadcomLatOpt := p.parseBroadcomOption(option); broadcomOpt != nil || broadcomLatOpt != nil {
-			enterpriseOpt.Decoded = true
-			if broadcomOpt != nil {
-				enterpriseOpt.DecodedData = p.broadcomOptionToMap(*broadcomOpt)
-				return enterpriseOpt, nil, nil, nil, nil, broadcomOpt, nil
-			} else if broadcomLatOpt != nil {
-				enterpriseOpt.DecodedData = p.broadcomLatencyOptionToMap(*broadcomLatOpt)
-				return enterpriseOpt, nil, nil, nil, nil, nil, broadcomLatOpt
-			}
-		}
-	case OptionClassMicrosoft:
-		enterpriseOpt.DecodedData = p.parseMicrosoftOption(option)
-		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
-	case OptionClassGoogle:
-		enterpriseOpt.DecodedData = p.parseGoogleOption(option)
-		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
-	case OptionClassAmazon:
+	case OptionClassAmazon, OptionClassAmazonExt1, OptionClassAmazonExt2, OptionClassAmazonExt3,
+		 OptionClassAmazonExt4, OptionClassAmazonExt5, OptionClassAmazonExt6, OptionClassAmazonExt7,
+		 OptionClassAmazonExt8, OptionClassAmazonExt9:
 		enterpriseOpt.DecodedData = p.parseAmazonOption(option)
 		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
-	case OptionClassMellanox:
-		enterpriseOpt.DecodedData = p.parseMellanoxOption(option)
-		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
-	case OptionClassCumulus:
-		enterpriseOpt.DecodedData = p.parseCumulusOption(option)
+	case OptionClassGoogle1, OptionClassGoogle2, OptionClassGoogle3, OptionClassGoogle4:
+		enterpriseOpt.DecodedData = p.parseGoogleOption(option)
 		enterpriseOpt.Decoded = len(enterpriseOpt.DecodedData) > 0
 	default:
 		// Generic vendor-specific option
@@ -1030,42 +1050,68 @@ func (p *Parser) parseGenericVendorOption(option Option) map[string]interface{} 
 // getVendorName returns human-readable vendor name for option class
 func (p *Parser) getVendorName(class uint16) string {
 	switch class {
-	case OptionClassVMware:
-		return "VMware Inc."
+	// IANA assigned vendor classes
+	case OptionClassLinux:
+		return "Linux"
+	case OptionClassOVS:
+		return "Open vSwitch (OVS)"
 	case OptionClassOVN:
 		return "Open Virtual Networking (OVN)"
-	case OptionClassVMwareExtended:
-		return "VMware NSX-T"
-	case OptionClassCisco:
-		return "Cisco Systems Inc."
-	case OptionClassCiscoExtended:
-		return "Cisco ACI Extended"
-	case OptionClassMicrosoft:
-		return "Microsoft Corporation"
-	case OptionClassGoogle:
-		return "Google Inc."
+	case OptionClassINT:
+		return "In-band Network Telemetry (INT)"
+	case OptionClassVMware:
+		return "VMware, Inc."
 	case OptionClassAmazon:
-		return "Amazon.com Inc."
-	case OptionClassHuawei:
-		return "Huawei Technologies"
-	case OptionClassJuniper:
-		return "Juniper Networks"
-	case OptionClassArista:
-		return "Arista Networks"
-	case OptionClassMellanox:
-		return "NVIDIA/Mellanox"
-	case OptionClassBroadcom:
-		return "Broadcom Inc."
-	case OptionClassCumulus:
-		return "NVIDIA Cumulus Linux"
-	case OptionClassOpenStack:
-		return "OpenStack Neutron"
-	case OptionClassKubernetes:
-		return "Kubernetes CNI"
-	case OptionClassContainerD:
-		return "ContainerD/Docker"
-	case OptionClassOpenShift:
-		return "Red Hat OpenShift"
+		return "Amazon.com, Inc."
+	case OptionClassCisco:
+		return "Cisco Systems, Inc."
+	case OptionClassOracle:
+		return "Oracle Corporation"
+	case OptionClassAmazonExt1, OptionClassAmazonExt2, OptionClassAmazonExt3, OptionClassAmazonExt4,
+		 OptionClassAmazonExt5, OptionClassAmazonExt6, OptionClassAmazonExt7, OptionClassAmazonExt8, OptionClassAmazonExt9:
+		return "Amazon.com, Inc."
+	case OptionClassIBM1, OptionClassIBM2, OptionClassIBM3, OptionClassIBM4, OptionClassIBM5, OptionClassIBM6, OptionClassIBM7, OptionClassIBM8:
+		return "IBM"
+	case OptionClassEricsson1, OptionClassEricsson2:
+		return "Ericsson"
+	case OptionClassOxide:
+		return "Oxide Computer Company"
+	case OptionClassCiscoExt1, OptionClassCiscoExt2:
+		return "Cisco Systems, Inc."
+	case OptionClassGoogle1, OptionClassGoogle2, OptionClassGoogle3, OptionClassGoogle4:
+		return "Google LLC"
+	case OptionClassInfoQuick:
+		return "InfoQuick Global Connection Tech Ltd."
+	case OptionClassAlibaba1:
+		return "Alibaba, inc"
+	case OptionClassPaloAlto1, OptionClassPaloAlto2, OptionClassPaloAlto3, OptionClassPaloAlto4:
+		return "Palo Alto Networks"
+	case OptionClassHuawei1, OptionClassHuawei2:
+		return "Huawei Technologies Co., Ltd"
+	case OptionClassEMnify:
+		return "EMnify GmbH"
+	case OptionClassCilium:
+		return "Cilium"
+	case OptionClassCorelight:
+		return "Corelight, Inc."
+	case OptionClass1NCE:
+		return "1NCE GmbH"
+	case OptionClassTelecom1:
+		return "Cloud of China Telecom (CTYUN)"
+	case OptionClassVolcengine1:
+		return "Volcengine, inc"
+	case OptionClassNat64:
+		return "nat64.net"
+	case OptionClassMultiSegment:
+		return "Multi Segment SD-WAN"
+	case OptionClassCPacket:
+		return "cPacket Networks"
+	case OptionClassTencent1, OptionClassTencent2, OptionClassTencent3:
+		return "Tencent"
+	case OptionClassExtraHop:
+		return "ExtraHop Networks, Inc."
+	case OptionClassSoosanINT:
+		return "Soosan INT Co., Ltd."
 	default:
 		if class >= 0x0100 && class <= 0xFEFF {
 			return fmt.Sprintf("Vendor-Specific (0x%04x)", class)
@@ -1298,7 +1344,48 @@ func (o *Option) GetOptionTypeName() string {
 
 	// Check by class and type separately
 	switch o.Class {
-	case 0x0103: // INT class
+	case OptionClassLinux: // Linux (0x0100)
+		switch o.Type {
+		case GenericTypeTimestamp:
+			return "Timestamp"
+		case GenericTypeSecurityTag:
+			return "Security Tag"
+		case GenericTypeQoSMarking:
+			return "QoS Marking"
+		case GenericTypeLoadBalance:
+			return "Load Balance Hint"
+		case GenericTypeDebugInfo:
+			return "Debug Info"
+		default:
+			return fmt.Sprintf("Linux Type 0x%02x", o.Type)
+		}
+	case OptionClassOVS: // Open vSwitch (0x0101)
+		switch o.Type {
+		case 0x01:
+			return "OVS Datapath ID"
+		case 0x02:
+			return "OVS Port ID"
+		default:
+			return fmt.Sprintf("OVS Type 0x%02x", o.Type)
+		}
+	case OptionClassOVN: // Open Virtual Networking (0x0102)
+		switch o.Type {
+		case OVNTypeMetadata:
+			return "OVN Metadata"
+		case OVNTypeTunnelKey:
+			return "OVN Tunnel Key"
+		case OVNTypeLogicalPort:
+			return "OVN Logical Port"
+		case OVNTypeConntrack:
+			return "OVN Connection Tracking"
+		case OVNTypeLoadBalancer:
+			return "OVN Load Balancer"
+		case OVNTypeACLMetadata:
+			return "OVN ACL Metadata"
+		default:
+			return fmt.Sprintf("OVN Type 0x%02x", o.Type)
+		}
+	case OptionClassINT: // In-band Network Telemetry (0x0103)
 		switch o.Type {
 		case INTTypeMetadata:
 			return "INT Metadata"
@@ -1313,33 +1400,7 @@ func (o *Option) GetOptionTypeName() string {
 		default:
 			return fmt.Sprintf("INT Type 0x%02x", o.Type)
 		}
-	case 0x0001: // Linux Generic
-		switch o.Type {
-		case GenericTypeTimestamp:
-			return "Timestamp"
-		case GenericTypeSecurityTag:
-			return "Security Tag"
-		case GenericTypeQoSMarking:
-			return "QoS Marking"
-		case GenericTypeLoadBalance:
-			return "Load Balance Hint"
-		case GenericTypeDebugInfo:
-			return "Debug Info"
-		default:
-			return fmt.Sprintf("Generic Type 0x%02x", o.Type)
-		}
-	case 0x0000: // Experimental
-		switch o.Type {
-		case OAMTypeEcho:
-			return "OAM Echo"
-		case OAMTypeTrace:
-			return "OAM Trace"
-		case OAMTypeConnectivity:
-			return "OAM Connectivity"
-		default:
-			return fmt.Sprintf("Experimental Type 0x%02x", o.Type)
-		}
-	case OptionClassVMware: // VMware
+	case OptionClassVMware: // VMware (0x0104)
 		switch o.Type {
 		case VMwareTypeNSXMetadata:
 			return "NSX Metadata"
@@ -1358,37 +1419,20 @@ func (o *Option) GetOptionTypeName() string {
 		default:
 			return fmt.Sprintf("VMware Type 0x%02x", o.Type)
 		}
-	case OptionClassOVN: // Open Virtual Networking (OVN)
+	case OptionClassAmazon, OptionClassAmazonExt1, OptionClassAmazonExt2, OptionClassAmazonExt3,
+		 OptionClassAmazonExt4, OptionClassAmazonExt5, OptionClassAmazonExt6, OptionClassAmazonExt7,
+		 OptionClassAmazonExt8, OptionClassAmazonExt9: // Amazon classes
 		switch o.Type {
-		case OVNTypeMetadata:
-			return "OVN Metadata"
-		case OVNTypeTunnelKey:
-			return "OVN Tunnel Key"
-		case OVNTypeLogicalPort:
-			return "OVN Logical Port"
-		case OVNTypeConntrack:
-			return "OVN Connection Tracking"
-		case OVNTypeLoadBalancer:
-			return "OVN Load Balancer"
-		case OVNTypeACLMetadata:
-			return "OVN ACL Metadata"
+		case AmazonTypeVPC:
+			return "VPC Metadata"
+		case AmazonTypeECS:
+			return "Elastic Container Service"
+		case AmazonTypeEKS:
+			return "Elastic Kubernetes Service"
 		default:
-			return fmt.Sprintf("OVN Type 0x%02x", o.Type)
+			return fmt.Sprintf("Amazon Type 0x%02x", o.Type)
 		}
-	case OptionClassVMwareExtended: // VMware Extended/NSX-T
-		switch o.Type {
-		case VMwareTypeNSXMetadata:
-			return "NSX Metadata"
-		case VMwareTypeNSXTMetadata:
-			return "NSX-T Advanced Metadata"
-		case VMwareTypeDistFirewall:
-			return "Distributed Firewall"
-		case VMwareTypeLoadBalancer:
-			return "Load Balancer Metadata"
-		default:
-			return fmt.Sprintf("VMware NSX-T Type 0x%02x", o.Type)
-		}
-	case OptionClassCisco: // Cisco
+	case OptionClassCisco, OptionClassCiscoExt1, OptionClassCiscoExt2: // Cisco classes
 		switch o.Type {
 		case CiscoTypeACI:
 			return "Application Centric Infrastructure"
@@ -1403,29 +1447,7 @@ func (o *Option) GetOptionTypeName() string {
 		default:
 			return fmt.Sprintf("Cisco Type 0x%02x", o.Type)
 		}
-	case OptionClassMicrosoft: // Microsoft
-		switch o.Type {
-		case MicrosoftTypeHyperV:
-			return "Hyper-V Metadata"
-		case MicrosoftTypeAzure:
-			return "Azure Metadata"
-		case MicrosoftTypeSDN:
-			return "Software Defined Networking"
-		default:
-			return fmt.Sprintf("Microsoft Type 0x%02x", o.Type)
-		}
-	case OptionClassAmazon: // Amazon
-		switch o.Type {
-		case AmazonTypeVPC:
-			return "VPC Metadata"
-		case AmazonTypeECS:
-			return "Elastic Container Service"
-		case AmazonTypeEKS:
-			return "Elastic Kubernetes Service"
-		default:
-			return fmt.Sprintf("Amazon Type 0x%02x", o.Type)
-		}
-	case OptionClassGoogle: // Google
+	case OptionClassGoogle1, OptionClassGoogle2, OptionClassGoogle3, OptionClassGoogle4: // Google classes
 		switch o.Type {
 		case GoogleTypeGKE:
 			return "Google Kubernetes Engine"
@@ -1435,6 +1457,17 @@ func (o *Option) GetOptionTypeName() string {
 			return "Cloud Armor"
 		default:
 			return fmt.Sprintf("Google Type 0x%02x", o.Type)
+		}
+	case 0x0000: // Standard/Experimental
+		switch o.Type {
+		case OAMTypeEcho:
+			return "OAM Echo"
+		case OAMTypeTrace:
+			return "OAM Trace"
+		case OAMTypeConnectivity:
+			return "OAM Connectivity"
+		default:
+			return fmt.Sprintf("Experimental Type 0x%02x", o.Type)
 		}
 	default:
 		return fmt.Sprintf("Type 0x%02x", o.Type)
