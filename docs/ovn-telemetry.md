@@ -1,234 +1,121 @@
 # Open Virtual Networking (OVN) GENEVE Telemetry Support
 
-This document describes the GENEVE protocol parser's support for Open Virtual Networking (OVN) telemetry.
+This document describes the GENEVE protocol parser's support for Open Virtual Networking (OVN) tunnel encapsulation metadata.
 
 ## Overview
 
-Open Virtual Networking (OVN) is an open-source network virtualization solution that provides native virtual networking capabilities for Open vSwitch (OVS). OVN enables multi-tenant network virtualization with distributed logical switching, routing, security groups, and load balancing. The OVN GENEVE telemetry provides deep insights into virtual network operations, logical flow processing, and distributed firewall enforcement.
+Open Virtual Networking (OVN) is an open-source network virtualization solution that provides native virtual networking capabilities for Open vSwitch (OVS). OVN complements OVS to add native support for logical network abstractions such as logical L2 and L3 overlays, security groups, DHCP, and other network services. OVN uses GENEVE tunneling to connect hypervisors and transport logical network packets with embedded metadata.
 
-## Option Class
+OVN is the official software-defined networking solution for OpenStack, Kubernetes, and other cloud management systems.
 
-- **Class**: `0x0102` (Open Virtual Networking)
-- **Vendor**: Open Virtual Networking (OVN)
-- **IANA Assignment**: Official IANA NVO3 registry assignment
+## GENEVE Encapsulation in OVN
 
-## Supported Telemetry Types
+- **IANA Class**: `0x0102` (Open Virtual Networking)
+- **TLV Type**: `0x80` (Port Metadata)
+- **Encoding**: 32-bit value containing logical port identifiers
+- **VNI Usage**: 24-bit logical datapath identifier (or 12-bit in VXLAN mode)
 
-### 1. OVN Metadata (Type 0x01)
+## OVN GENEVE Metadata Format
 
-Provides core OVN logical network metadata embedded in GENEVE packets.
+## OVN GENEVE Metadata Format
 
-```go
-type OVNMetadata struct {
-    DatapathID    uint64 // Logical datapath identifier
-    LogicalFlowID uint32 // Logical flow table entry
-    PortBinding   uint32 // Logical port binding ID
-}
+OVN transmits logical network metadata in GENEVE packets using a standardized format:
+
+### VNI Field (GENEVE Header)
+
+The GENEVE VNI (Virtual Network Identifier) field carries the **logical datapath identifier**:
+- **24-bit value** in standard Geneve mode
+- **12-bit value** in VXLAN compatibility mode (when VXLAN is enabled in the cluster)
+
+The logical datapath identifier comes from the `tunnel_key` column in the OVN Southbound `Datapath_Binding` table and uniquely identifies a logical switch or logical router.
+
+### TLV Option (Class 0x0102, Type 0x80)
+
+OVN transmits logical port metadata using a GENEVE TLV option:
+- **Class**: `0x0102` (IANA-assigned OVN class)
+- **Type**: `0x80` (Port metadata)
+- **Length**: 4 bytes (32-bit value)
+
+The 32-bit value is encoded as follows (MSB to LSB):
+
+```
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|R|    Logical Ingress Port     |      Logical Egress Port      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-**Use Cases:**
-- Multi-tenant network isolation tracking
-- Logical topology mapping
-- Virtual network troubleshooting
-- Flow correlation across physical infrastructure
+**Field Definitions:**
+- **Bit 31 (R)**: Reserved, must be 0
+- **Bits 30-16 (15 bits)**: Logical Ingress Port identifier
+  - ID 0: Reserved for internal OVN use
+  - IDs 1-32767: Assigned to logical ports
+- **Bits 15-0 (16 bits)**: Logical Egress Port identifier
+  - IDs 0-32767: Unicast logical ports
+  - IDs 32768-65535: Logical multicast groups
 
-**Example:**
-```go
-// Parse OVN metadata from GENEVE options
-for _, opt := range result.Options {
-    if opt.Class == geneve.OptionClassOVN && opt.Type == 0x01 {
-        datapathID := binary.BigEndian.Uint64(opt.Data[0:8])
-        logicalFlow := binary.BigEndian.Uint32(opt.Data[8:12])
-        portBinding := binary.BigEndian.Uint32(opt.Data[12:16])
-        
-        fmt.Printf("OVN Datapath: %d, Flow: %d, Port: %d\n",
-            datapathID, logicalFlow, portBinding)
-    }
-}
-```
+### Port Identifiers
 
-### 2. Tunnel Key (Type 0x02)
+**Logical Ingress Port**: The logical port from which the packet entered the logical datapath. This comes from the `tunnel_key` column in the `Port_Binding` table.
 
-Encapsulates tunnel endpoint and VNI mapping information.
+**Logical Egress Port**: The logical port to which the packet is destined. For unicast traffic, this is a specific port's tunnel key. For multicast/broadcast, this is a multicast group tunnel key from the `Multicast_Group` table.
 
-```go
-type OVNTunnelKey struct {
-    TunnelID      uint32 // GENEVE VNI / Tunnel ID
-    RemoteIP      uint32 // Tunnel endpoint IP address
-    EncapType     uint8  // Encapsulation type (GENEVE=0x01)
-    Reserved      [3]byte
-}
-```
+### VXLAN Compatibility Mode
 
-**Applications:**
-- Tunnel endpoint discovery
-- Virtual network to physical mapping
-- Overlay network topology visualization
-- Encapsulation efficiency monitoring
+When VXLAN is enabled in an OVN cluster, metadata encoding is reduced:
+- **12-bit logical datapath** identifier (instead of 24-bit)
+- **12-bit logical egress port** identifier (instead of 16-bit)
+- **No logical ingress port** field
+- IDs 0-2047: Unicast ports
+- IDs 2048-4095: Multicast groups
 
-**Example:**
-```go
-// Extract tunnel key information
-if opt.Class == geneve.OptionClassOVN && opt.Type == 0x02 {
-    tunnelID := binary.BigEndian.Uint32(opt.Data[0:4])
-    remoteIP := binary.BigEndian.Uint32(opt.Data[4:8])
-    
-    fmt.Printf("Tunnel VNI: %d, Remote: %s\n",
-        tunnelID, intToIP(remoteIP))
-}
-```
+**Limitations in VXLAN mode:**
+- Maximum 4096 logical networks
+- Maximum 2048 ports per network
+- ACLs cannot match on logical ingress ports
+- OVN Interconnection feature unavailable
 
-### 3. Logical Port (Type 0x03)
+## OVN Logical Network Concepts
 
-Contains logical port metadata for MAC learning and port security.
+## OVN Logical Network Concepts
 
-```go
-type OVNLogicalPort struct {
-    PortUUID      [16]byte // Logical port UUID
-    MACAddress    [6]byte  // Port MAC address
-    PortSecurity  uint8    // Security flags
-    Reserved      uint8
-}
-```
+Understanding OVN metadata requires familiarity with OVN's logical network abstractions:
 
-**Benefits:**
-- Port security enforcement tracking
-- MAC address learning visibility
-- Virtual machine network identity
-- Anti-spoofing validation
+### Logical Datapaths
 
-**Example:**
-```go
-// Process logical port information
-if opt.Class == geneve.OptionClassOVN && opt.Type == 0x03 {
-    portUUID := opt.Data[0:16]
-    macAddr := opt.Data[16:22]
-    security := opt.Data[22]
-    
-    fmt.Printf("Port UUID: %x, MAC: %x, Security: 0x%02x\n",
-        portUUID, macAddr, security)
-}
-```
+A **logical datapath** is OVN's internal implementation detail representing a logical switch or logical router. Each logical network element (switch or router) defined in the OVN Northbound database gets translated by `ovn-northd` into a logical datapath in the Southbound database's `Datapath_Binding` table.
 
-### 4. Connection Tracking (Type 0x80)
+The datapath's `tunnel_key` becomes the GENEVE VNI that identifies packets belonging to that logical network.
 
-Provides stateful connection tracking information for NAT and firewalling.
+### Logical Ports
 
-```go
-type OVNConnTrack struct {
-    ConnID        uint64 // Connection tracking ID
-    State         uint8  // Connection state (NEW, ESTABLISHED, etc.)
-    NATFlags      uint8  // NAT operation flags
-    TCPFlags      uint16 // TCP flags if applicable
-    OrigSrcIP     uint32 // Original source IP
-    OrigDstIP     uint32 // Original destination IP
-}
-```
+**Logical switch ports** (LSPs) and **logical router ports** (LRPs) are connection points in the logical network:
 
-**Applications:**
-- Stateful firewall tracking
-- NAT operation monitoring
-- Connection state debugging
-- Security policy enforcement validation
+**Common LSP Types:**
+- **VIF ports**: Connection points for VMs and containers (empty string type)
+- **router ports**: Connect logical switches to logical routers
+- **localnet ports**: Bridge logical switches to physical VLANs
+- **localport ports**: Special ports present on every chassis (e.g., metadata service)
+- **patch ports**: Internal ports connecting logical routers to switches
 
-**Example:**
-```go
-// Analyze connection tracking data
-if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
-    connID := binary.BigEndian.Uint64(opt.Data[0:8])
-    state := opt.Data[8]
-    natFlags := opt.Data[9]
-    tcpFlags := binary.BigEndian.Uint16(opt.Data[10:12])
-    
-    stateStr := []string{"NEW", "ESTABLISHED", "RELATED", "INVALID"}[state]
-    fmt.Printf("Connection %d: %s, NAT: 0x%02x, TCP: 0x%04x\n",
-        connID, stateStr, natFlags, tcpFlags)
-}
-```
+The `tunnel_key` from the `Port_Binding` table becomes the ingress/egress port identifier in GENEVE metadata.
 
-### 5. Load Balancer (Type 0x81)
+### Logical Flows
 
-Load balancer metadata for distributed L4 load balancing.
+OVN translates high-level network policies into **logical flows** stored in the `Logical_Flow` table. These flows are processed by ovn-controller on each chassis and converted to OpenFlow rules. The logical flow processing happens based on the logical datapath and port identifiers carried in GENEVE metadata.
 
-```go
-type OVNLoadBalancer struct {
-    LBID          uint32 // Load balancer ID
-    VIP           uint32 // Virtual IP address
-    BackendIP     uint32 // Selected backend IP
-    BackendPort   uint16 // Backend port
-    Protocol      uint8  // L4 protocol (TCP=6, UDP=17)
-    HealthStatus  uint8  // Backend health (0=down, 1=up)
-}
-```
+## Parsing OVN GENEVE Metadata
 
-**Use Cases:**
-- Load balancing decision tracking
-- Backend health monitoring
-- Session persistence validation
-- Traffic distribution analysis
-
-**Example:**
-```go
-// Track load balancer operations
-if opt.Class == geneve.OptionClassOVN && opt.Type == 0x81 {
-    lbID := binary.BigEndian.Uint32(opt.Data[0:4])
-    vip := binary.BigEndian.Uint32(opt.Data[4:8])
-    backend := binary.BigEndian.Uint32(opt.Data[8:12])
-    port := binary.BigEndian.Uint16(opt.Data[12:14])
-    health := opt.Data[15]
-    
-    fmt.Printf("LB %d: VIP %s -> Backend %s:%d (health: %d)\n",
-        lbID, intToIP(vip), intToIP(backend), port, health)
-}
-```
-
-### 6. ACL Metadata (Type 0x82)
-
-Access control list enforcement metadata.
-
-```go
-type OVNACLMetadata struct {
-    ACLID         uint32 // ACL rule identifier
-    Priority      uint16 // Rule priority
-    Action        uint8  // Action (ALLOW=1, DENY=2, REJECT=3)
-    Direction     uint8  // Direction (INGRESS=1, EGRESS=2)
-    MatchCount    uint64 // Number of matches
-}
-```
-
-**Benefits:**
-- Security policy enforcement tracking
-- ACL rule hit counting
-- Firewall troubleshooting
-- Compliance auditing
-
-**Example:**
-```go
-// Monitor ACL enforcement
-if opt.Class == geneve.OptionClassOVN && opt.Type == 0x82 {
-    aclID := binary.BigEndian.Uint32(opt.Data[0:4])
-    priority := binary.BigEndian.Uint16(opt.Data[4:6])
-    action := opt.Data[6]
-    direction := opt.Data[7]
-    
-    actionStr := []string{"", "ALLOW", "DENY", "REJECT"}[action]
-    dirStr := []string{"", "INGRESS", "EGRESS"}[direction]
-    fmt.Printf("ACL %d: %s %s (priority %d)\n",
-        aclID, actionStr, dirStr, priority)
-}
-```
-
-## Usage Examples
-
-### Basic OVN Telemetry Parsing
+### Basic Metadata Extraction
 
 ```go
 package main
 
 import (
+    "encoding/binary"
     "fmt"
     "log"
-    "encoding/binary"
     "github.com/yourusername/libgeneve-go/geneve"
 )
 
@@ -239,25 +126,86 @@ func main() {
         log.Fatal(err)
     }
 
-    // Process OVN telemetry
+    // Extract logical datapath from VNI
+    datapathID := result.VNI
+    fmt.Printf("Logical Datapath ID: %d (0x%06x)\n", datapathID, datapathID)
+
+    // Process OVN port metadata
     for _, opt := range result.Options {
-        if opt.Class == geneve.OptionClassOVN {
-            switch opt.Type {
-            case 0x01:
-                fmt.Println("OVN Metadata:", parseOVNMetadata(opt.Data))
-            case 0x02:
-                fmt.Println("Tunnel Key:", parseOVNTunnelKey(opt.Data))
-            case 0x03:
-                fmt.Println("Logical Port:", parseOVNLogicalPort(opt.Data))
-            case 0x80:
-                fmt.Println("Connection Tracking:", parseOVNConnTrack(opt.Data))
-            case 0x81:
-                fmt.Println("Load Balancer:", parseOVNLoadBalancer(opt.Data))
-            case 0x82:
-                fmt.Println("ACL Metadata:", parseOVNACL(opt.Data))
+        if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+            // Parse 32-bit port metadata
+            portData := binary.BigEndian.Uint32(opt.Data[0:4])
+            
+            // Extract ingress port (bits 30-16)
+            ingressPort := uint16((portData >> 16) & 0x7FFF)
+            
+            // Extract egress port (bits 15-0)
+            egressPort := uint16(portData & 0xFFFF)
+            
+            fmt.Printf("Logical Ingress Port: %d\n", ingressPort)
+            fmt.Printf("Logical Egress Port: %d\n", egressPort)
+            
+            // Check if egress is multicast
+            if egressPort >= 32768 {
+                fmt.Printf("Egress is multicast group: %d\n", egressPort)
             }
         }
     }
+}
+```
+
+### Mapping to OVN Database
+
+To fully understand the logical network topology, correlate GENEVE metadata with OVN Southbound database:
+
+```go
+// Example: Query OVN Southbound DB to map tunnel keys to logical ports
+func mapTunnelKeyToPort(ingressKey uint16) (string, error) {
+    // Connect to OVN Southbound database via OVSDB protocol
+    // Query: SELECT logical_port FROM Port_Binding WHERE tunnel_key = ingressKey
+    
+    // This would return the logical port name like "vm1-eth0" or "router-port1"
+    // Implementation requires ovsdb client library
+    return "vm1-eth0", nil
+}
+
+func mapDatapathToNetwork(datapathKey uint32) (string, error) {
+    // Query: SELECT * FROM Datapath_Binding WHERE tunnel_key = datapathKey
+    // Returns whether it's a logical switch or router
+    return "logical-switch-1", nil
+}
+```
+
+### Packet Flow Tracing
+
+```go
+func traceOVNPacket(packet []byte) {
+    parser := geneve.NewParser()
+    result, err := parser.ParsePacket(packet)
+    if err != nil {
+        log.Printf("Parse error: %v", err)
+        return
+    }
+
+    // Extract OVN metadata
+    var ingressPort, egressPort uint16
+    for _, opt := range result.Options {
+        if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+            portData := binary.BigEndian.Uint32(opt.Data)
+            ingressPort = uint16((portData >> 16) & 0x7FFF)
+            egressPort = uint16(portData & 0xFFFF)
+        }
+    }
+
+    fmt.Printf("=== OVN Packet Trace ===\n")
+    fmt.Printf("Logical Datapath: %d\n", result.VNI)
+    fmt.Printf("Ingress Port: %d (where packet entered)\n", ingressPort)
+    fmt.Printf("Egress Port: %d (where packet exits)\n", egressPort)
+    fmt.Printf("Inner Protocol: 0x%04x\n", result.ProtocolType)
+    
+    // Trace shows packet journey through logical network
+    // Example: VM1 (port 5) -> Logical Switch 100 -> Logical Router -> 
+    //          Logical Switch 200 -> VM2 (port 10)
 }
 ```
 
@@ -266,7 +214,7 @@ func main() {
 ```go
 func monitorTenantTraffic(packets [][]byte) {
     parser := geneve.NewParser()
-    tenantStats := make(map[uint64]*TenantStats)
+    datapathStats := make(map[uint32]*DatapathStats)
     
     for _, packet := range packets {
         result, err := parser.ParsePacket(packet)
@@ -274,39 +222,36 @@ func monitorTenantTraffic(packets [][]byte) {
             continue
         }
         
-        for _, opt := range result.Options {
-            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x01 {
-                datapathID := binary.BigEndian.Uint64(opt.Data[0:8])
-                
-                if _, exists := tenantStats[datapathID]; !exists {
-                    tenantStats[datapathID] = &TenantStats{}
-                }
-                
-                tenantStats[datapathID].PacketCount++
-                tenantStats[datapathID].ByteCount += uint64(len(packet))
-            }
+        // Each logical datapath represents a tenant's network
+        datapathID := result.VNI
+        
+        if _, exists := datapathStats[datapathID]; !exists {
+            datapathStats[datapathID] = &DatapathStats{}
         }
+        
+        datapathStats[datapathID].PacketCount++
+        datapathStats[datapathID].ByteCount += uint64(len(packet))
     }
     
-    // Report per-tenant statistics
-    for datapathID, stats := range tenantStats {
-        fmt.Printf("Tenant %d: %d packets, %d bytes\n",
+    // Report per-datapath (tenant) statistics
+    for datapathID, stats := range datapathStats {
+        fmt.Printf("Datapath %d: %d packets, %d bytes\n",
             datapathID, stats.PacketCount, stats.ByteCount)
     }
 }
 
-type TenantStats struct {
+type DatapathStats struct {
     PacketCount uint64
     ByteCount   uint64
 }
 ```
 
-### Distributed Firewall Analysis
+### Port-Level Traffic Analysis
 
 ```go
-func analyzeFirewallEnforcement(packets [][]byte) {
+func analyzePortTraffic(packets [][]byte) {
     parser := geneve.NewParser()
-    aclStats := make(map[uint32]*ACLStats)
+    portStats := make(map[uint16]*PortStats)
     
     for _, packet := range packets {
         result, err := parser.ParsePacket(packet)
@@ -315,33 +260,42 @@ func analyzeFirewallEnforcement(packets [][]byte) {
         }
         
         for _, opt := range result.Options {
-            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x82 {
-                aclID := binary.BigEndian.Uint32(opt.Data[0:4])
-                action := opt.Data[6]
+            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+                portData := binary.BigEndian.Uint32(opt.Data)
+                ingressPort := uint16((portData >> 16) & 0x7FFF)
+                egressPort := uint16(portData & 0xFFFF)
                 
-                if _, exists := aclStats[aclID]; !exists {
-                    aclStats[aclID] = &ACLStats{}
+                // Track ingress port statistics
+                if _, exists := portStats[ingressPort]; !exists {
+                    portStats[ingressPort] = &PortStats{}
                 }
+                portStats[ingressPort].TxPackets++
+                portStats[ingressPort].TxBytes += uint64(len(packet))
                 
-                aclStats[aclID].HitCount++
-                if action == 2 { // DENY
-                    aclStats[aclID].DenyCount++
+                // Track egress port statistics
+                if egressPort < 32768 { // Unicast only
+                    if _, exists := portStats[egressPort]; !exists {
+                        portStats[egressPort] = &PortStats{}
+                    }
+                    portStats[egressPort].RxPackets++
+                    portStats[egressPort].RxBytes += uint64(len(packet))
                 }
             }
         }
     }
     
-    // Report ACL effectiveness
-    for aclID, stats := range aclStats {
-        denyRate := float64(stats.DenyCount) / float64(stats.HitCount) * 100
-        fmt.Printf("ACL %d: %d hits, %.2f%% deny rate\n",
-            aclID, stats.HitCount, denyRate)
+    // Report per-port statistics
+    for portID, stats := range portStats {
+        fmt.Printf("Port %d: TX=%d pkts/%d bytes, RX=%d pkts/%d bytes\n",
+            portID, stats.TxPackets, stats.TxBytes, stats.RxPackets, stats.RxBytes)
     }
 }
 
-type ACLStats struct {
-    HitCount   uint64
-    DenyCount  uint64
+type PortStats struct {
+    TxPackets uint64
+    TxBytes   uint64
+    RxPackets uint64
+    RxBytes   uint64
 }
 ```
 
@@ -349,12 +303,11 @@ type ACLStats struct {
 
 ### OpenStack Neutron Integration
 
+OVN is the official SDN backend for OpenStack Neutron. When Neutron creates networks, subnets, ports, routers, and security groups, they are translated into OVN logical network objects.
+
 ```go
-func integrateWithNeutron(ovnPackets [][]byte) {
+func correlateWithNeutron(ovnPackets [][]byte, neutronClient *NeutronClient) {
     parser := geneve.NewParser()
-    
-    // Map OVN logical networks to Neutron networks
-    networkMapping := make(map[uint64]string) // datapathID -> neutron_network_id
     
     for _, packet := range ovnPackets {
         result, err := parser.ParsePacket(packet)
@@ -362,26 +315,36 @@ func integrateWithNeutron(ovnPackets [][]byte) {
             continue
         }
         
+        // Map OVN datapath to Neutron network
+        datapathID := result.VNI
+        neutronNetwork := neutronClient.GetNetworkByDatapath(datapathID)
+        
+        // Extract port information
         for _, opt := range result.Options {
-            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x01 {
-                datapathID := binary.BigEndian.Uint64(opt.Data[0:8])
+            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+                portData := binary.BigEndian.Uint32(opt.Data)
+                ingressPort := uint16((portData >> 16) & 0x7FFF)
                 
-                // Query Neutron API for network details
-                if neutronNetID, exists := networkMapping[datapathID]; exists {
-                    fmt.Printf("Traffic on Neutron network: %s\n", neutronNetID)
-                }
+                // Map to Neutron port (VM interface)
+                neutronPort := neutronClient.GetPortByTunnelKey(ingressPort)
+                
+                fmt.Printf("Traffic from Neutron network: %s\n", neutronNetwork.Name)
+                fmt.Printf("Source port: %s (instance: %s)\n", 
+                    neutronPort.Name, neutronPort.DeviceID)
             }
         }
     }
 }
 ```
 
-### Kubernetes OVN-Kubernetes CNI
+### Kubernetes with OVN-Kubernetes CNI
+
+OVN-Kubernetes is the Container Network Interface (CNI) plugin that provides pod networking using OVN.
 
 ```go
 func monitorKubernetesPods(packets [][]byte) {
     parser := geneve.NewParser()
-    podTraffic := make(map[[16]byte]*PodTraffic) // portUUID -> pod stats
+    podTraffic := make(map[uint16]*PodTraffic) // port ID -> pod stats
     
     for _, packet := range packets {
         result, err := parser.ParsePacket(packet)
@@ -390,24 +353,25 @@ func monitorKubernetesPods(packets [][]byte) {
         }
         
         for _, opt := range result.Options {
-            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x03 {
-                var portUUID [16]byte
-                copy(portUUID[:], opt.Data[0:16])
+            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+                portData := binary.BigEndian.Uint32(opt.Data)
+                ingressPort := uint16((portData >> 16) & 0x7FFF)
                 
-                if _, exists := podTraffic[portUUID]; !exists {
-                    podTraffic[portUUID] = &PodTraffic{}
+                if _, exists := podTraffic[ingressPort]; !exists {
+                    podTraffic[ingressPort] = &PodTraffic{}
                 }
                 
-                podTraffic[portUUID].PacketCount++
-                podTraffic[portUUID].ByteCount += uint64(len(packet))
+                podTraffic[ingressPort].PacketCount++
+                podTraffic[ingressPort].ByteCount += uint64(len(packet))
             }
         }
     }
     
-    // Correlate with Kubernetes pods via OVN annotations
-    for portUUID, traffic := range podTraffic {
-        fmt.Printf("Pod port %x: %d packets, %d bytes\n",
-            portUUID, traffic.PacketCount, traffic.ByteCount)
+    // Map port IDs to Kubernetes pods via OVN port bindings
+    // Port names in OVN follow pattern: namespace_podname
+    for portID, traffic := range podTraffic {
+        fmt.Printf("Port %d: %d packets, %d bytes\n",
+            portID, traffic.PacketCount, traffic.ByteCount)
     }
 }
 
@@ -419,57 +383,65 @@ type PodTraffic struct {
 
 ## Advanced Analytics
 
-### Flow Correlation
+### Packet Path Reconstruction
+
+Trace packet flow through logical network topology:
 
 ```go
-func correlateOVNFlows(packets [][]byte) {
+func reconstructPacketPath(packets [][]byte) {
     parser := geneve.NewParser()
-    flowMap := make(map[uint32][]FlowEntry)
     
-    for i, packet := range packets {
+    type PathSegment struct {
+        DatapathID  uint32
+        IngressPort uint16
+        EgressPort  uint16
+        Timestamp   time.Time
+    }
+    
+    packetPaths := make(map[string][]PathSegment) // flow ID -> path
+    
+    for _, packet := range packets {
         result, err := parser.ParsePacket(packet)
         if err != nil {
             continue
         }
         
+        // Extract 5-tuple from inner packet to identify flow
+        flowID := extractFlowID(result.Payload)
+        
         for _, opt := range result.Options {
-            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x01 {
-                flowID := binary.BigEndian.Uint32(opt.Data[8:12])
+            if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+                portData := binary.BigEndian.Uint32(opt.Data)
                 
-                flowMap[flowID] = append(flowMap[flowID], FlowEntry{
-                    PacketIndex: i,
-                    Timestamp:   result.Timestamp,
-                    VNI:         result.VNI,
-                })
+                segment := PathSegment{
+                    DatapathID:  result.VNI,
+                    IngressPort: uint16((portData >> 16) & 0x7FFF),
+                    EgressPort:  uint16(portData & 0xFFFF),
+                    Timestamp:   time.Now(),
+                }
+                
+                packetPaths[flowID] = append(packetPaths[flowID], segment)
             }
         }
     }
     
-    // Analyze flow patterns
-    for flowID, entries := range flowMap {
-        if len(entries) > 1 {
-            duration := entries[len(entries)-1].Timestamp.Sub(entries[0].Timestamp)
-            fmt.Printf("Flow %d: %d packets over %v\n",
-                flowID, len(entries), duration)
+    // Analyze paths
+    for flowID, path := range packetPaths {
+        fmt.Printf("Flow %s path:\n", flowID)
+        for i, segment := range path {
+            fmt.Printf("  [%d] Datapath=%d, In=%d, Out=%d\n",
+                i, segment.DatapathID, segment.IngressPort, segment.EgressPort)
         }
     }
 }
-
-type FlowEntry struct {
-    PacketIndex int
-    Timestamp   time.Time
-    VNI         uint32
-}
 ```
 
-### Performance Optimization
+### Multicast Group Analysis
 
 ```go
-func optimizeOVNPerformance(packets [][]byte) {
+func analyzeMulticastTraffic(packets [][]byte) {
     parser := geneve.NewParser()
-    var connTrackLatency []time.Duration
-    
-    connTrackStart := make(map[uint64]time.Time)
+    mcastStats := make(map[uint16]*MulticastStats) // group ID -> stats
     
     for _, packet := range packets {
         result, err := parser.ParsePacket(packet)
@@ -479,30 +451,32 @@ func optimizeOVNPerformance(packets [][]byte) {
         
         for _, opt := range result.Options {
             if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
-                connID := binary.BigEndian.Uint64(opt.Data[0:8])
-                state := opt.Data[8]
+                portData := binary.BigEndian.Uint32(opt.Data)
+                egressPort := uint16(portData & 0xFFFF)
                 
-                if state == 0 { // NEW
-                    connTrackStart[connID] = result.Timestamp
-                } else if state == 1 { // ESTABLISHED
-                    if startTime, exists := connTrackStart[connID]; exists {
-                        latency := result.Timestamp.Sub(startTime)
-                        connTrackLatency = append(connTrackLatency, latency)
+                // Check if egress is multicast (ID >= 32768)
+                if egressPort >= 32768 {
+                    if _, exists := mcastStats[egressPort]; !exists {
+                        mcastStats[egressPort] = &MulticastStats{}
                     }
+                    
+                    mcastStats[egressPort].PacketCount++
+                    mcastStats[egressPort].ByteCount += uint64(len(packet))
                 }
             }
         }
     }
     
-    // Calculate connection tracking performance metrics
-    if len(connTrackLatency) > 0 {
-        var total time.Duration
-        for _, lat := range connTrackLatency {
-            total += lat
-        }
-        avgLatency := total / time.Duration(len(connTrackLatency))
-        fmt.Printf("Avg ConnTrack Latency: %v\n", avgLatency)
+    // Report multicast statistics
+    for groupID, stats := range mcastStats {
+        fmt.Printf("Multicast Group %d: %d packets, %d bytes\n",
+            groupID, stats.PacketCount, stats.ByteCount)
     }
+}
+
+type MulticastStats struct {
+    PacketCount uint64
+    ByteCount   uint64
 }
 ```
 
@@ -510,51 +484,132 @@ func optimizeOVNPerformance(packets [][]byte) {
 
 ### Common Issues
 
-1. **Missing OVN Metadata**
-   - **Symptom**: No OVN telemetry in GENEVE packets
-   - **Cause**: OVN not configured to embed metadata
-   - **Solution**: Enable OVN external IDs and metadata options
+1. **Missing OVN Metadata in GENEVE Packets**
+   - **Symptom**: GENEVE packets don't contain class 0x0102, type 0x80 option
+   - **Cause**: OVN may not always include the port metadata TLV (it's optional)
+   - **Solution**: The VNI field always contains the datapath ID. Port information may be implicit based on tunnel source/destination.
 
-2. **Incorrect Datapath Mapping**
-   - **Symptom**: Cannot correlate datapath IDs to logical networks
-   - **Cause**: OVN database not synchronized
-   - **Solution**: Query OVN northbound/southbound databases for mappings
+2. **Incorrect Datapath or Port Mapping**
+   - **Symptom**: Cannot correlate tunnel keys to logical networks
+   - **Cause**: Tunnel keys in GENEVE don't match OVN Southbound database
+   - **Solution**: Query `Datapath_Binding` and `Port_Binding` tables:
+     ```bash
+     # Get datapath bindings
+     ovn-sbctl list Datapath_Binding
+     
+     # Get port bindings
+     ovn-sbctl list Port_Binding
+     ```
 
-3. **Connection Tracking State Mismatches**
-   - **Symptom**: Connection state doesn't match expected flow
-   - **Cause**: Distributed connection tracking desynchronization
-   - **Solution**: Check OVN conntrack zones and flow table consistency
+3. **VXLAN Mode Limitations**
+   - **Symptom**: Missing ingress port information, reduced tunnel key space
+   - **Cause**: Cluster has VXLAN enabled (check `ovn-nb get NB_Global . options:vxlan_mode`)
+   - **Solution**: Use Geneve-only mode for full metadata, or accept VXLAN limitations
+
+4. **Tunnel Key Conflicts**
+   - **Symptom**: Same tunnel key appears for different logical objects
+   - **Cause**: Database inconsistency or interconnection setup issues
+   - **Solution**: Check for duplicate tunnel_key values in Southbound DB
 
 ### Debugging Tips
 
 ```go
-// Enable verbose OVN telemetry logging
-func debugOVNTelemetry(packet []byte) {
+// Enable verbose OVN metadata logging
+func debugOVNMetadata(packet []byte) {
     parser := geneve.NewParser()
-    parser.SetDebugMode(true)
-    
     result, err := parser.ParsePacket(packet)
     if err != nil {
         log.Printf("Parse error: %v", err)
         return
     }
     
-    for _, opt := range result.Options {
-        if opt.Class == geneve.OptionClassOVN {
-            log.Printf("OVN Option - Type: 0x%02x, Length: %d, Data: %x",
-                opt.Type, len(opt.Data), opt.Data)
+    log.Printf("=== OVN GENEVE Debug ===")
+    log.Printf("VNI (Datapath): %d (0x%06x)", result.VNI, result.VNI)
+    log.Printf("Protocol: 0x%04x", result.ProtocolType)
+    log.Printf("Options count: %d", len(result.Options))
+    
+    for i, opt := range result.Options {
+        log.Printf("Option[%d]: Class=0x%04x, Type=0x%02x, Length=%d bytes",
+            i, opt.Class, opt.Type, len(opt.Data))
+        
+        if opt.Class == geneve.OptionClassOVN && opt.Type == 0x80 {
+            if len(opt.Data) >= 4 {
+                portData := binary.BigEndian.Uint32(opt.Data)
+                ingressPort := uint16((portData >> 16) & 0x7FFF)
+                egressPort := uint16(portData & 0xFFFF)
+                
+                log.Printf("  OVN Port Metadata:")
+                log.Printf("    Ingress Port: %d (0x%04x)", ingressPort, ingressPort)
+                log.Printf("    Egress Port: %d (0x%04x)", egressPort, egressPort)
+                log.Printf("    Raw Value: 0x%08x", portData)
+            }
         }
     }
 }
 ```
 
+### Correlating with OVN Commands
+
+```bash
+# Find logical datapath for a network
+ovn-nbctl show
+
+# Get datapath tunnel key
+ovn-sbctl find Datapath_Binding external_ids:name="logical-switch-1"
+
+# Get port tunnel keys
+ovn-sbctl find Port_Binding logical_port="vm1-port"
+
+# Watch tunnel traffic in real-time
+ovn-trace --detailed <datapath-name> 'inport=="vm1-port" && eth.src==00:00:00:00:00:01'
+
+# Monitor southbound database changes
+ovn-sbctl --timestamp monitor Datapath_Binding Port_Binding
+```
+
+### Packet Capture and Analysis
+
+```bash
+# Capture GENEVE traffic on integration bridge
+tcpdump -i genev_sys_6081 -nn -vv -X
+
+# Capture on physical interface
+tcpdump -i eth0 'udp port 6081' -nn -vv -X
+
+# Use ovs-tcpdump for easier capture
+ovs-tcpdump -i br-int --mirror-to=mirror0
+
+# Decode with tshark
+tshark -i eth0 -f 'udp port 6081' -V -O geneve
+```
+
 ## References
 
-- [OVN Architecture](https://www.ovn.org/support/dist-docs/ovn-architecture.7.html)
-- [OpenStack Neutron OVN Driver](https://docs.openstack.org/neutron/latest/admin/ovn/index.html)
-- [OVN-Kubernetes CNI](https://github.com/ovn-org/ovn-kubernetes)
-- [IANA NVO3 Option Classes](https://www.iana.org/assignments/nvo3/nvo3.xhtml)
+### Official OVN Documentation
+- [OVN Architecture (ovn-architecture.7)](https://www.ovn.org/support/dist-docs/ovn-architecture.7.html) - Comprehensive OVN design and implementation details
+- [OVN Northbound Database Schema (ovn-nb.5)](https://www.ovn.org/support/dist-docs/ovn-nb.5.html) - Logical network configuration
+- [OVN Southbound Database Schema (ovn-sb.5)](https://www.ovn.org/support/dist-docs/ovn-sb.5.html) - Runtime state and tunnel keys
+- [ovn-controller(8)](https://www.ovn.org/support/dist-docs/ovn-controller.8.html) - Local controller on each chassis
+- [ovn-northd(8)](https://www.ovn.org/support/dist-docs/ovn-northd.8.html) - Central control plane daemon
+
+### Integration Guides
+- [OpenStack Neutron with OVN](https://docs.openstack.org/neutron/latest/admin/ovn/index.html) - OVN as Neutron ML2 mechanism driver
+- [OVN-Kubernetes](https://github.com/ovn-org/ovn-kubernetes) - Kubernetes CNI plugin using OVN
+- [OVS Integration Guide](https://docs.openvswitch.org/en/latest/topics/integration/) - Hypervisor integration with Open vSwitch
+
+### Standards and Specifications
+- [RFC 8926: Geneve Protocol](https://www.rfc-editor.org/rfc/rfc8926.html) - Official GENEVE specification
+- [IANA NVO3 Encapsulation Option Classes](https://www.iana.org/assignments/nvo3/nvo3.xhtml) - Official registry including OVN class 0x0102
+- [OVSDB RFC 7047](https://www.rfc-editor.org/rfc/rfc7047.html) - OVSDB Management Protocol
+
+### Tunnel Encapsulation Details
+As specified in `ovn-architecture(7)`, section "Tunnel Encapsulations":
+- GENEVE VNI carries the 24-bit logical datapath identifier (tunnel_key from Datapath_Binding)
+- TLV with class 0x0102, type 0x80 carries 32-bit port metadata (1-bit reserved + 15-bit ingress + 16-bit egress)
+- Port IDs 1-32767 are assigned to logical switch/router ports
+- Port IDs 32768-65535 are assigned to multicast groups
 
 ---
 
 *Last updated: October 16, 2025*
+*Based on OVN Architecture specification from ovn-architecture.7.xml*
